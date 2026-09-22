@@ -7,7 +7,8 @@ import { zh } from './locales'
  * Frame-wide modal (registered into `shell.overlay`) that edits the prompt
  * configured for the workspace the current session runs in. Opened by the
  * `/workspace-prompt` slash command; saves and clears through the persist
- * handlers the command half registered on the shared observable.
+ * handlers the command half registered on the shared observable, and disables
+ * both actions while the shared config form refuses writes.
  *
  * It reads its state from the module-level {@link workspacePromptModal}
  * observable via `useSyncExternalStore` — `shell.overlay` is a root-scoped
@@ -28,6 +29,7 @@ export function WorkspacePromptModal(): JSX.Element | null {
 
   if (!state.open || state.cwd === undefined) return null
   const cwd = state.cwd
+  const disabled = busy || !state.writable
 
   const onSave = async (): Promise<void> => {
     setBusy(true)
@@ -63,8 +65,8 @@ export function WorkspacePromptModal(): JSX.Element | null {
       title={zh['modal.title']}
       footer={(
         <>
-          <Button variant="outline" disabled={busy} onClick={onClear}>{zh['modal.clear']}</Button>
-          <Button variant="primary" disabled={busy} onClick={onSave}>{zh['modal.save']}</Button>
+          <Button variant="outline" disabled={disabled} onClick={onClear}>{zh['modal.clear']}</Button>
+          <Button variant="primary" disabled={disabled} onClick={onSave}>{zh['modal.save']}</Button>
         </>
       )}
     >

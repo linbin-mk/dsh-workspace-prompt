@@ -13,21 +13,21 @@ English | [简体中文](https://github.com/linbin-mk/dsh-workspace-prompt/blob/
 It changes no Harness source and implements three things:
 
 1. **Configuration entry** — a `/workspace-prompt` slash command opens a modal with a textarea plus **Save** / **Clear** buttons. The textarea echoes the currently stored value on open; **Clear** removes the workspace's prompt.
-2. **Auto-injection** — the stored prompt is folded into the model context when a session starts, mirroring the official `agent-instructions` (`AGENTS.md`) mechanism: a durable `user/message` is managed in the agent inbox at `agent/pre-step`. The message source is `kind: 'plugin'`, so the web transcript renders it as a collapsed context-injection row (the same shape as AGENTS.md) rather than as a user bubble.
-3. **Persistence** — the prompt is stored in the user-settings document under the `workspace-prompt` namespace, which the settings provider persists to a file in the Harness home, so it survives a restart.
+2. **Auto-injection** — the stored prompt is folded into the model context when a session starts, mirroring the official `agent-instructions` (`AGENTS.md`) mechanism: a durable `user/message` is managed in the agent inbox at `agent/pre-step`. The message source is the plugin's own `kind: 'workspace-prompt'` with the `form: 'instructions'` context form, so the web transcript renders it as a collapsed context-injection row (the same shape as AGENTS.md) rather than as a user bubble.
+3. **Persistence** — the prompt is a live field of this plugin's own Cordis `Config` (`prompts`, the workspace directory → prompt map). Its loader row id `workspace-prompt` is the settings namespace, and the Harness user-settings provider writes the profile's user layer to a file in the Harness home, so it survives a restart.
 
 ## Features
 
 - **Scoped per workspace** — prompts are keyed by the session's absolute working directory (`cwd`), the stable identity of the workspace, so workspaces never bleed into each other.
 - **Injected at session start** — no pasting the same text into every conversation; it reaches the model context on its own.
 - **Two ways to manage it** — configure in place with the `/workspace-prompt` slash command, or manage every configured workspace from the **Settings → Workspace prompts** page.
-- **Survives restarts** — stored in the user-settings document and persisted to disk by the Harness settings provider.
+- **Survives restarts** — stored in this plugin's Config and written to the profile's user layer by the Harness user-settings provider.
 - **Composes with AGENTS.md** — reuses the official `agent-instructions` inbox/decision pattern and `<system-reminder>` wrapping.
 
 ## Requirements
 
 - Node.js `^22.19` or `>=24`
-- DeepSeek Harness `0.1.5-rc.1` or a compatible `0.1.5` prerelease, with a Web profile that provides `ctx.settings` and `ctx.agent`
+- DeepSeek Harness `0.1.7-alpha.1` or a compatible `0.1.7` prerelease, with a Web profile that provides `ctx.settings` / `ctx.configForms` and `ctx.agent`
 - The user interface is offered on the Web Client only; there is no terminal or desktop entry point
 
 ## Install
@@ -49,7 +49,7 @@ pnpm pack
 dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-0.1.0.tgz
 ```
 
-Because the package declares a `dsh.client` entry, the web shell loads `lib/client.js` automatically once the plugin is part of the composed tree; the node half (`lib/index.js`) provides settings persistence and injection.
+Because the package declares a `dsh.client` entry, the web shell loads `lib/client.js` automatically once the plugin is part of the composed tree; the node half (`lib/index.js`) declares the live-editable `Config` and injects the prompt at `agent/pre-step`.
 
 ## Usage
 
@@ -63,15 +63,15 @@ You can also manage everything from **Settings → 工作区提示词**: configu
 
 ### Host half (`src/index.ts` + `src/inject.ts`, loaded as a Cordis plugin)
 
-- Registers the `workspace-prompt` settings namespace (`{ prompts: Record<absoluteDir, string> }`). The settings provider persists it (feature 3).
+- Declares its Cordis `Config`: one `prompts: Record<absoluteDir, string>` field marked `.volatile()`, so the settings form can edit it live. Its loader row id `workspace-prompt` is the settings namespace; the Harness user-settings provider writes Host-side changes to the profile's user layer and pushes them to the plugin (feature 3). The plugin ships its own settings page, so `apply` turns the generated config page off with `ctx.settings.configure({ auto: false })`.
 - Listens on `agent/pre-step`. For each step it reads the session's `header.cwd`, looks up the configured prompt, and — when present — mints a `user/message` wrapped in `<system-reminder>`, manages it in the inbox, and folds it into the step's decision so it reaches the first model request and the durable log (feature 2). The pure injection and inbox-reconciliation logic lives in `src/inject.ts`; `src/index.ts` wires it onto the Cordis context.
 
 ### Client half (`src/client/index.ts`, loaded as the plugin's `dsh.client` half)
 
 - Registers a `CommandContribution` named `workspace-prompt`. The slash menu entry is only offered when the current session has a `cwd`.
-- Registers a `shell.overlay` modal (`WorkspacePromptModal`) wired to a small `HostObservable`. Selecting the command reads the current value via the Host settings RPC (`api.settings.describe`) and opens the modal.
-- **Save** / **Clear** call back through the same Host settings RPC (`api.settings.mutate` with `set` / `unset` path ops on `prompts.<cwd>`), so the echoed value and the injected value share one source.
-- Registers the **Settings → 工作区提示词 / Workspace prompts** overview page (`settings.section`). It lists every configured workspace on a card (in-place edit / clear), and an **Add workspace** picker — fed by the `useWorkspaces` standard hook — offers the registered workspaces that have **no prompt yet**; picking one opens a fresh editable row that persists on **Save**.
+- Registers a `shell.overlay` modal (`WorkspacePromptModal`) wired to a small `HostObservable`. Selecting the command reads the current value through the shared configuration form (`ctx.configForms.get('workspace-prompt')`, whose entry id is the loader row id) and opens the modal; when the form refuses writes (memory mode on a non-loopback page), Save and Clear stay disabled.
+- **Save** / **Clear** call back through the same shared configuration form (`form.mutate` with `set` / `unset` path ops on `prompts.<cwd>`; a Host refusal answers `false` and the UI reports the failure), so the echoed value and the injected value share one source.
+- Registers the **Settings → 工作区提示词 / Workspace prompts** overview page (`settings.section`). It lists every configured workspace on a card (in-place edit / clear), and an **Add workspace** picker — fed by the `useWorkspaces` standard hook — offers the registered workspaces that have **no prompt yet**; picking one opens a fresh editable row that persists on **Save**. The page subscribes to the same configuration form, so a write answer or a Host-side change republishes the list, and every write control stays disabled while the form is loading or refuses writes.
 
 ## Why the entry is a slash command, not the workspace "more" popup
 
@@ -81,7 +81,7 @@ The workspace action popup (`重命名` / `删除工作区`) in `packages/client
 
 - Changing the prompt mid-session appends the new text to the next request while the earlier value remains in history; the prompt is re-read fresh at each new session.
 - The modal entry point is the slash command, not the workspace "more" popup (see above).
-- This package requires DeepSeek Harness `0.1.5-rc.1` or a compatible `0.1.5` prerelease. It is an independent third-party plugin and is not covered by the Harness `packages/*` test/coverage gates; integration must be verified in a running Harness.
+- This package requires DeepSeek Harness `0.1.7-alpha.1` or a compatible `0.1.7` prerelease (plugin configuration is Cordis `Config`, and the browser half reads and writes it through `ctx.configForms`). It is an independent third-party plugin and is not covered by the Harness `packages/*` test/coverage gates; integration must be verified in a running Harness.
 - A prompt consumes context budget in every session of that workspace, so the longer it is, the less room is left for the conversation.
 
 ## Troubleshooting

@@ -1,3 +1,5 @@
+import type { WorkspacePromptsView } from './config.ts'
+
 /** Live state of the workspace-prompt configuration modal. */
 export interface WorkspacePromptModalState {
   /** Whether the modal is currently open. */
@@ -6,6 +8,8 @@ export interface WorkspacePromptModalState {
   cwd: string | undefined
   /** Current stored prompt text (echoed into the textarea on open). */
   value: string
+  /** Whether the shared config form accepts writes; false disables both actions. */
+  writable: boolean
 }
 
 /** Persist/clear callbacks owned by the command half (which holds `ctx`). */
@@ -25,7 +29,7 @@ export interface WorkspacePromptHandlers {
  */
 export class WorkspacePromptObservable {
   private readonly listeners = new Set<() => void>()
-  private state: WorkspacePromptModalState = { open: false, cwd: undefined, value: '' }
+  private state: WorkspacePromptModalState = { open: false, cwd: undefined, value: '', writable: false }
   /** Set by the command half at activation; undefined only before first activation. */
   handlers: WorkspacePromptHandlers | undefined
 
@@ -37,12 +41,19 @@ export class WorkspacePromptObservable {
   }
 
   open = (cwd: string, value: string): void => {
-    this.state = { open: true, cwd, value }
+    this.state = { ...this.state, open: true, cwd, value }
     this.emit()
   }
 
   close = (): void => {
     this.state = { ...this.state, open: false }
+    this.emit()
+  }
+
+  /** Adopt the shared config form's write permission. */
+  setWritable = (writable: boolean): void => {
+    if (this.state.writable === writable) return
+    this.state = { ...this.state, writable }
     this.emit()
   }
 
@@ -66,28 +77,28 @@ export interface WorkspacePromptsEntry {
 export interface WorkspacePromptsState {
   /** Configured entries, ordered by workspace directory. */
   entries: readonly WorkspacePromptsEntry[]
-  /** Whether a list or write operation is in flight. */
-  busy: boolean
-  /** Error message of the last failed operation, if any. */
-  error: string | null
+  /** Config-form status: `loading` until the Host answers, then `ready` or `unavailable`. */
+  status: WorkspacePromptsView['status']
+  /** Whether the Host document accepts writes; false also while unavailable. */
+  writable: boolean
 }
 
 /** Data verbs for the settings overview, owned by the plugin apply (holds ctx). */
 export interface WorkspacePromptsHandlers {
-  /** Read every configured workspace prompt from persisted settings. */
-  list: () => Promise<Record<string, string>>
+  /** Read the shared config form's current state. */
+  view: () => WorkspacePromptsView
 }
 
 /**
  * Module-level observable backing the settings overview section, mirroring
  * the {@link WorkspacePromptObservable} pattern: `settings.section` renders
  * through the root-scoped slot machinery, so the command half (which owns
- * `ctx`) writes the read handlers here and the section reads state via
- * React's {@link useSyncExternalStore}.
+ * `ctx`) writes the read handler here and the section reads state via React's
+ * {@link useSyncExternalStore}.
  */
 export class WorkspacePromptsObservable {
   private readonly listeners = new Set<() => void>()
-  private state: WorkspacePromptsState = { entries: [], busy: false, error: null }
+  private state: WorkspacePromptsState = { entries: [], status: 'loading', writable: false }
   /** Set by the command half at activation; undefined only before first activation. */
   handlers: WorkspacePromptsHandlers | undefined
 
@@ -98,30 +109,28 @@ export class WorkspacePromptsObservable {
     return () => { this.listeners.delete(listener) }
   }
 
-  /** Reload the overview from the persisted prompts (no-op before activation). */
-  refresh = async (): Promise<void> => {
-    const list = this.handlers?.list
-    if (list === undefined) return
-    this.state = { ...this.state, busy: true, error: null }
-    this.emit()
-    try {
-      const prompts = await list()
-      this.state = {
-        busy: false,
-        error: null,
-        entries: Object.entries(prompts)
-          .filter(([, text]) => text.length > 0)
-          .map(([cwd, text]) => ({ cwd, text }))
-          .sort((a, b) => a.cwd.localeCompare(b.cwd)),
-      }
-    } catch (cause) {
-      this.state = {
-        ...this.state,
-        busy: false,
-        error: cause instanceof Error ? cause.message : String(cause),
-      }
+  /**
+   * Replace the live state from one config-form read. Empty prompts are
+   * dropped and entries are ordered by workspace directory.
+   * @param view - status, write permission, and prompts read from the form.
+   */
+  adopt = (view: WorkspacePromptsView): void => {
+    this.state = {
+      entries: Object.entries(view.prompts)
+        .filter(([, text]) => text.length > 0)
+        .map(([cwd, text]) => ({ cwd, text }))
+        .sort((a, b) => a.cwd.localeCompare(b.cwd)),
+      status: view.status,
+      writable: view.writable,
     }
     this.emit()
+  }
+
+  /** Re-read the shared config form (no-op before activation). */
+  refresh = async (): Promise<void> => {
+    const view = this.handlers?.view
+    if (view === undefined) return
+    this.adopt(view())
   }
 
   private emit(): void {

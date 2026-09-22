@@ -10,6 +10,7 @@ export declare const zh: {
     'modal.saving': string;
     'modal.cleared': string;
     'modal.error': string;
+    'error.rejected': string;
     'settings.nav': string;
     'settings.title': string;
     'settings.intro': string;
@@ -41,6 +42,7 @@ export declare const en: {
     'modal.saving': string;
     'modal.cleared': string;
     'modal.error': string;
+    'error.rejected': string;
     'settings.nav': string;
     'settings.title': string;
     'settings.intro': string;

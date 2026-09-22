@@ -3,8 +3,8 @@
  *
  * Registered by the client plugin body as a `settings.section` contribution,
  * so it appears as its own navigation row inside the settings panel. It lists
- * every workspace with a configured prompt — read through the Host settings
- * RPC — with in-place edit (Save) and removal (Clear) per row, plus an
+ * every workspace with a configured prompt — read from the shared config form —
+ * with in-place edit (Save) and removal (Clear) per row, plus an
  * **Add workspace** picker: workspaces without a prompt are offered in a
  * dropdown (from the live workspace list behind the `useWorkspaces` standard
  * hook), picking one opens a fresh editable row. The card list is derived in
@@ -12,12 +12,13 @@
  * save's reload swaps the pending card for the persisted card atomically
  * instead of briefly rendering both. The page remounts on every visit (the
  * settings shell renders only the active section), so it always starts from a
- * fresh read of the persisted document.
+ * fresh read of the shared form, and every write surface stays disabled while
+ * the form is loading or the Host document refuses writes.
  */
 
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import { Button, IconPlusOutline16, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconPlusOutlineRegular, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspacePromptsState } from './stores'
@@ -292,7 +293,10 @@ export function WorkspacePromptsSection({
   )
 
   const workspacesReady = workspaces.phase === 'ready'
-  const busy = state.busy
+  // The shared form has no Host answer yet: no row is trustworthy, and every
+  // write surface stays disabled until it is ready and writable.
+  const busy = state.status === 'loading'
+  const disabled = busy || !state.writable
 
   const addWorkspace = (cwd: string): void => {
     setPickerOpen(false)
@@ -322,12 +326,6 @@ export function WorkspacePromptsSection({
       <h2>{t('settings.title')}</h2>
       <p>{t('settings.intro')}</p>
 
-      {state.error !== null && (
-        <div role="alert" style={{ color: 'var(--dsw-alias-state-error-primary, #c0392b)', marginTop: 12 }}>
-          {t('settings.error').replace('{message}', state.error)}
-        </div>
-      )}
-
       {/* Toolbar: configured-count summary on the left, Add picker on the right. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12 }}>
         <span style={{ ...hint, marginTop: 0 }}>
@@ -349,8 +347,8 @@ export function WorkspacePromptsSection({
             <Button
               variant="primary"
               size="sm"
-              icon={<IconPlusOutline16 size={14} />}
-              disabled={busy || !workspacesReady}
+              icon={<IconPlusOutlineRegular size={14} />}
+              disabled={disabled || !workspacesReady}
               onClick={() => { setPickerOpen(open => !open) }}
             >
               {t('settings.add')}
@@ -367,7 +365,7 @@ export function WorkspacePromptsSection({
           name={nameFor(row.cwd)}
           text={row.text}
           isNew={row.isNew}
-          disabled={busy}
+          disabled={disabled}
           t={t}
           onSave={save}
           onClear={clear}
@@ -376,7 +374,7 @@ export function WorkspacePromptsSection({
       ))}
 
       {/* Empty state: nothing configured yet (Add lives in the toolbar above). */}
-      {rows.length === 0 && !busy && state.error === null && (
+      {rows.length === 0 && !busy && (
         <div style={{ ...card, textAlign: 'center', padding: '22px 14px' }}>
           <div style={title}>{t('settings.empty.title')}</div>
           <div style={hint}>{t('settings.empty.hint')}</div>

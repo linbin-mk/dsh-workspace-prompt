@@ -1,19 +1,36 @@
 /**
  * Pure host injection logic for the workspace-prompt plugin.
  *
- * This module carries the inbox-reconciliation and message-building rules with
- * no Cordis or harness runtime imports (harness types are imported as types
- * only), so the behaviour is unit-testable without booting a Cordis app. The
- * `apply` entrypoint in `index.ts` wires these helpers onto the live
- * `agent/pre-step` hook and the settings namespace.
+ * This module carries the message source declaration, the inbox-reconciliation
+ * rules, and the message-building rules with no Cordis runtime imports, so the
+ * behaviour is unit-testable without booting a Cordis app. The `apply`
+ * entrypoint in `index.ts` wires these helpers onto the live `agent/pre-step`
+ * hook and this plugin's Config.
  */
-import type { UserMessage } from '@deepseek-ai/dsh-llm';
+import type { ContextFormed, UserMessage } from '@deepseek-ai/dsh-llm';
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
+declare module '@deepseek-ai/dsh-llm' {
+    interface MessageSourceMap {
+        /**
+         * Standing per-workspace guidance the user configured. The kind is this
+         * plugin's own identity (`identity.ts`), never a shared catch-all; the
+         * content is instructions the model is expected to follow, so it declares
+         * the `instructions` context form and consumers present the row from it.
+         */
+        'workspace-prompt': {
+            kind: 'workspace-prompt';
+        } & ContextFormed;
+    }
+}
 /** Wrap a raw prompt in the same `<system-reminder>` framing the model reads. */
 export declare function renderPrompt(text: string): string;
 /** Two messages with identical content blocks compare equal for inbox purposes. */
 export declare function sameContent(a: UserMessage, b: UserMessage): boolean;
-/** Build the context message injected for one workspace prompt. */
+/**
+ * Build the context message injected for one workspace prompt.
+ * @param text - the raw configured prompt.
+ * @returns an immutable user-role message carrying the rendered prompt.
+ */
 export declare function buildMessage(text: string): UserMessage;
 /** Minimal session surface the injection logic reads to detect prior injections. */
 export interface SurfaceLike {

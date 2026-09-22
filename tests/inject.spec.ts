@@ -70,9 +70,9 @@ describe('sameContent', () => {
 })
 
 describe('buildMessage', () => {
-  it('marks the message as plugin-sourced context, not a human prompt', () => {
+  it('marks the message with this plugin own source kind and the instructions form', () => {
     const built = buildMessage('hi')
-    expect(built.source).toEqual({ kind: 'plugin', plugin: 'workspace-prompt' })
+    expect(built.source).toEqual({ kind: 'workspace-prompt', form: 'instructions' })
   })
 
   it('embeds the rendered prompt as its single text block', () => {
@@ -107,6 +107,12 @@ describe('surfaceSupplies', () => {
   it('ignores human messages with identical content', () => {
     const humanMessage = message('h', renderPrompt('x'), { kind: 'user' })
     const surface = surfaceWith([{ type: 'user/message', data: humanMessage }], [0])
+    expect(surfaceSupplies(surface, buildMessage('x'))).toBe(false)
+  })
+
+  it('ignores another producer context carrying identical content', () => {
+    const foreign = message('f', renderPrompt('x'), { kind: 'agent-instructions', form: 'instructions' })
+    const surface = surfaceWith([{ type: 'user/message', data: foreign }], [0])
     expect(surfaceSupplies(surface, buildMessage('x'))).toBe(false)
   })
 

@@ -1,16 +1,29 @@
 /**
  * Pure host injection logic for the workspace-prompt plugin.
  *
- * This module carries the inbox-reconciliation and message-building rules with
- * no Cordis or harness runtime imports (harness types are imported as types
- * only), so the behaviour is unit-testable without booting a Cordis app. The
- * `apply` entrypoint in `index.ts` wires these helpers onto the live
- * `agent/pre-step` hook and the settings namespace.
+ * This module carries the message source declaration, the inbox-reconciliation
+ * rules, and the message-building rules with no Cordis runtime imports, so the
+ * behaviour is unit-testable without booting a Cordis app. The `apply`
+ * entrypoint in `index.ts` wires these helpers onto the live `agent/pre-step`
+ * hook and this plugin's Config.
  */
 
-import { name } from './identity.ts'
-import type { UserMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import type { ContextFormed, UserMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { name } from './identity.ts'
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    /**
+     * Standing per-workspace guidance the user configured. The kind is this
+     * plugin's own identity (`identity.ts`), never a shared catch-all; the
+     * content is instructions the model is expected to follow, so it declares
+     * the `instructions` context form and consumers present the row from it.
+     */
+    'workspace-prompt': { kind: 'workspace-prompt' } & ContextFormed
+  }
+}
 
 const PROMPT_INTRO =
   'The following workspace-specific prompt was configured by the user for this workspace. '
@@ -27,17 +40,16 @@ export function sameContent(a: UserMessage, b: UserMessage): boolean {
   return JSON.stringify(a.content) === JSON.stringify(b.content)
 }
 
-/** Build the context message injected for one workspace prompt. */
+/**
+ * Build the context message injected for one workspace prompt.
+ * @param text - the raw configured prompt.
+ * @returns an immutable user-role message carrying the rendered prompt.
+ */
 export function buildMessage(text: string): UserMessage {
-  const block = Object.freeze({ type: 'text' as const, text: renderPrompt(text) })
-  const content = Object.freeze([block])
-  const source = Object.freeze({ kind: 'plugin' as const, plugin: name })
-  return Object.freeze({
-    id: globalThis.crypto.randomUUID(),
-    role: 'user' as const,
-    content,
-    source,
-  }) as unknown as UserMessage
+  return createUserMessage({
+    content: [{ type: 'text', text: renderPrompt(text) }],
+    source: { kind: name, form: 'instructions' },
+  })
 }
 
 /** Minimal session surface the injection logic reads to detect prior injections. */
@@ -52,9 +64,9 @@ export interface SurfaceLike {
 function isOwnMessageEvent(event: SessionEvent | undefined, desired: UserMessage): boolean {
   if (event?.type !== 'user/message') return false
   const recorded: UserMessage = event.data
-  return recorded.source.kind === 'plugin'
-    && recorded.source.plugin === name
-    && sameContent(recorded, desired)
+  // Message source kinds are merge-extensible: match this plugin's own kind
+  // and leave every other producer's message alone.
+  return recorded.source.kind === name && sameContent(recorded, desired)
 }
 
 /**
