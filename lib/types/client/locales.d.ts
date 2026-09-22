@@ -1,0 +1,64 @@
+/** Chinese (source of truth) dictionary for the workspace-prompt client plugin. */
+export declare const zh: {
+    'command.description': string;
+    'command.open': string;
+    'modal.title': string;
+    'modal.placeholder': string;
+    'modal.cwd': string;
+    'modal.save': string;
+    'modal.clear': string;
+    'modal.saving': string;
+    'modal.cleared': string;
+    'modal.error': string;
+    'settings.nav': string;
+    'settings.title': string;
+    'settings.intro': string;
+    'settings.add': string;
+    'settings.add.header': string;
+    'settings.add.empty': string;
+    'settings.add.none': string;
+    'settings.add.loading': string;
+    'settings.count': string;
+    'settings.countOf': string;
+    'settings.new': string;
+    'settings.empty.title': string;
+    'settings.empty.hint': string;
+    'settings.rowHint': string;
+    'settings.save': string;
+    'settings.clear': string;
+    'settings.cancel': string;
+    'settings.error': string;
+};
+/** English dictionary, checked complete against the zh key set. */
+export declare const en: {
+    'command.description': string;
+    'command.open': string;
+    'modal.title': string;
+    'modal.placeholder': string;
+    'modal.cwd': string;
+    'modal.save': string;
+    'modal.clear': string;
+    'modal.saving': string;
+    'modal.cleared': string;
+    'modal.error': string;
+    'settings.nav': string;
+    'settings.title': string;
+    'settings.intro': string;
+    'settings.add': string;
+    'settings.add.header': string;
+    'settings.add.empty': string;
+    'settings.add.none': string;
+    'settings.add.loading': string;
+    'settings.count': string;
+    'settings.countOf': string;
+    'settings.new': string;
+    'settings.empty.title': string;
+    'settings.empty.hint': string;
+    'settings.rowHint': string;
+    'settings.save': string;
+    'settings.clear': string;
+    'settings.cancel': string;
+    'settings.error': string;
+};
+/** Dictionary key union for this plugin. */
+export type WorkspacePromptKey = keyof typeof zh;
