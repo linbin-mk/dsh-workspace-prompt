@@ -1,1 +1,33 @@
 autoInstallPeers: false
+
+# Release-age exemptions for the DeepSeek Harness line this plugin tracks:
+# the packages are pinned by the lockfile, and waiting out the release age
+# would defeat tracking a harness release as soon as it ships.
+minimumReleaseAgeExclude:
+  - '@deepseek-ai/cordis@4.0.3'
+  - '@deepseek-ai/cordis-plugin-loader@1.0.4'
+  - '@deepseek-ai/cosmokit@1.8.4'
+  - '@deepseek-ai/dsh-agent@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-api-remotes@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-api-session-controller@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-atomic-write@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-brand@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-client-locale@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-client-ui-commands@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-client-ui-input-trigger@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-client-ui-layout@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-client-ui-primitives@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-client-ui-renderer@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-client-ui-settings@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-client-ui-slots@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-client-ui-workspace@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-config-editor@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-deque@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-llm@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-session@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-settings@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-timeout@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-typert-protocol@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-util-crypto@0.1.7-alpha.1'
+  - '@deepseek-ai/dsh-util-values@0.1.7-alpha.1'
+  - '@deepseek-ai/schemastery@3.18.3'
