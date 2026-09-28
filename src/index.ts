@@ -36,7 +36,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
 import type { Session } from '@deepseek-ai/dsh-session'
-import { buildMessage, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from './inject.ts'
+import { buildMessage, promptFor, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from './inject.ts'
 import { PROMPTS_FIELD } from './prompt-settings.ts'
 
 export const name = 'workspace-prompt'
@@ -52,8 +52,18 @@ export interface Config {
  * keeps the emitted declaration of `Config` portable: an annotated `dict`
  * schema's inferred type would name cosmokit's `Dict`, which this package does
  * not import. `volatile()` below is what makes the field live.
+ *
+ * The field is declared `any` rather than `dict`: the browser half's shared
+ * config form validates a section by calling its rehydrated schema, and the web
+ * client's snapshot store deep-freezes every section it publishes. A `dict`
+ * schema writes each resolved entry into that read-only map and throws
+ * (`Cannot assign to read only property`), so the form treats the section as
+ * invalid and keeps publishing its previous value — the settings page then
+ * shows the pre-write map until it remounts. `any` passes the same value
+ * through untouched. `promptFor` narrows the map before it is read, and the
+ * settings write path still refuses paths outside a volatile field.
  */
-const promptsField: z<Record<string, string>> = z.dict(z.string()).default({})
+const promptsField: z<Record<string, string>> = z.any().default({})
 
 /** Live per-workspace prompts, the only field the settings form edits. */
 export const Config = z.object({
@@ -96,7 +106,7 @@ export function apply(ctx: Context, config: Config): void {
     const decision = await next()
     void signal
     const cwd = agent.session.header.cwd
-    const text = cwd === undefined ? undefined : config.prompts.get()[cwd]
+    const text = cwd === undefined ? undefined : promptFor(config.prompts.get(), cwd)
     const desired = text !== undefined && text.length > 0 ? buildMessage(text) : undefined
 
     if (decision.kind === 'reject' || (step === 1 && decision.messages.length === 0)) {

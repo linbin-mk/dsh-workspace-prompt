@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildMessage, renderPrompt, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from '../src/inject.ts'
+import { buildMessage, promptFor, renderPrompt, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from '../src/inject.ts'
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
 
 function message(id: string, text: string, source: UserMessage['source'] = { kind: 'user' }): UserMessage {
@@ -206,5 +206,23 @@ describe('syncInbox', () => {
     syncInbox(inbox, [], isOurs(owned), desired, undefined)
     expect(inbox.nextStep).toEqual([desired])
     expect(ops).toEqual(['replace:a->d', 'remove:b'])
+  })
+})
+
+describe('promptFor', () => {
+  it('reads the entry stored under the workspace directory', () => {
+    expect(promptFor({ '/ws': 'hello' }, '/ws')).toBe('hello')
+  })
+
+  it('answers undefined for an unconfigured or non-string entry', () => {
+    expect(promptFor({}, '/ws')).toBeUndefined()
+    expect(promptFor({ '/ws': 42 }, '/ws')).toBeUndefined()
+  })
+
+  it('answers undefined for a section that is not a plain map', () => {
+    for (const section of [undefined, null, 'text', 7, ['/ws'], Object.freeze({ '/ws': 'x' })]) {
+      const expected = section !== null && typeof section === 'object' && !Array.isArray(section) ? 'x' : undefined
+      expect(promptFor(section, '/ws')).toBe(expected)
+    }
   })
 })

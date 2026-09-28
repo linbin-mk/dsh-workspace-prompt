@@ -8,7 +8,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@deepseek-ai/dsh-llm': stub('dsh-llm'),
-      '@deepseek-ai/schemastery': stub('dsh-schemastery'),
     },
   },
   test: {

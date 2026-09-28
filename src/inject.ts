@@ -52,6 +52,28 @@ export function buildMessage(text: string): UserMessage {
   })
 }
 
+/** Whether an untrusted config node is a plain JSON object (not null, array, or scalar). */
+function isPromptMap(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Read one workspace's prompt out of the live `prompts` value.
+ *
+ * The map reaches the Host from a profile document that a user may hand-edit,
+ * so its contents are narrowed rather than trusted: a section that is not a
+ * plain object, or an entry that is not a string, yields no prompt instead of
+ * breaking the step.
+ * @param prompts - the live `prompts` Config field value.
+ * @param cwd - absolute workspace directory.
+ * @returns the configured prompt, or undefined when none stands.
+ */
+export function promptFor(prompts: unknown, cwd: string): string | undefined {
+  if (!isPromptMap(prompts)) return undefined
+  const text = prompts[cwd]
+  return typeof text === 'string' ? text : undefined
+}
+
 /** Minimal session surface the injection logic reads to detect prior injections. */
 export interface SurfaceLike {
   /** Surface event sequences in model-visible order. */

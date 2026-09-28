@@ -32,6 +32,18 @@ export declare function sameContent(a: UserMessage, b: UserMessage): boolean;
  * @returns an immutable user-role message carrying the rendered prompt.
  */
 export declare function buildMessage(text: string): UserMessage;
+/**
+ * Read one workspace's prompt out of the live `prompts` value.
+ *
+ * The map reaches the Host from a profile document that a user may hand-edit,
+ * so its contents are narrowed rather than trusted: a section that is not a
+ * plain object, or an entry that is not a string, yields no prompt instead of
+ * breaking the step.
+ * @param prompts - the live `prompts` Config field value.
+ * @param cwd - absolute workspace directory.
+ * @returns the configured prompt, or undefined when none stands.
+ */
+export declare function promptFor(prompts: unknown, cwd: string): string | undefined;
 /** Minimal session surface the injection logic reads to detect prior injections. */
 export interface SurfaceLike {
     /** Surface event sequences in model-visible order. */
