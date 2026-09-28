@@ -27,7 +27,7 @@
 ## 要求
 
 - Node.js `^22.19` 或 `>=24`
-- DeepSeek Harness `0.1.7-alpha.1` 或兼容的 `0.1.7` 预发布版本，以及提供 `ctx.settings` / `ctx.configForms` 与 `ctx.agent` 的 Web profile
+- DeepSeek Harness `0.1.7-rc.2` 或兼容的 `0.1.7` 预发布版本，以及提供 `ctx.settings` / `ctx.configForms` 与 `ctx.agent` 的 Web profile
 - 本包只在 Web Client 端提供界面；不提供终端或桌面端入口
 
 ## 安装
@@ -81,7 +81,7 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-0.1.0.tgz
 
 - 会话中途修改提示词，会在下一次请求里追加新文本，而历史中更早的值保持不变；每次新会话都会重新读取最新值。
 - 模态框入口是斜杠命令，不是工作区「更多」弹出菜单（见上文）。
-- 本包要求 DeepSeek Harness `0.1.7-alpha.1` 或兼容的 `0.1.7` 预发布版本（插件配置即 Cordis `Config`，浏览器侧通过 `ctx.configForms` 读写）。它是独立的第三方插件，不受 Harness `packages/*` 的测试/覆盖率门禁约束；集成效果必须在运行中的 Harness 中验证。
+- 本包要求 DeepSeek Harness `0.1.7-rc.2` 或兼容的 `0.1.7` 预发布版本（插件配置即 Cordis `Config`，浏览器侧通过 `ctx.configForms` 读写）。它是独立的第三方插件，不受 Harness `packages/*` 的测试/覆盖率门禁约束；集成效果必须在运行中的 Harness 中验证。
 - 提示词会占用该工作区每个会话的上下文预算；写得越长，留给对话的空间越少。
 
 ## 故障排查

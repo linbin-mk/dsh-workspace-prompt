@@ -27,7 +27,7 @@ It changes no Harness source and implements three things:
 ## Requirements
 
 - Node.js `^22.19` or `>=24`
-- DeepSeek Harness `0.1.7-alpha.1` or a compatible `0.1.7` prerelease, with a Web profile that provides `ctx.settings` / `ctx.configForms` and `ctx.agent`
+- DeepSeek Harness `0.1.7-rc.2` or a compatible `0.1.7` prerelease, with a Web profile that provides `ctx.settings` / `ctx.configForms` and `ctx.agent`
 - The user interface is offered on the Web Client only; there is no terminal or desktop entry point
 
 ## Install
@@ -81,7 +81,7 @@ The workspace action popup (`重命名` / `删除工作区`) in `packages/client
 
 - Changing the prompt mid-session appends the new text to the next request while the earlier value remains in history; the prompt is re-read fresh at each new session.
 - The modal entry point is the slash command, not the workspace "more" popup (see above).
-- This package requires DeepSeek Harness `0.1.7-alpha.1` or a compatible `0.1.7` prerelease (plugin configuration is Cordis `Config`, and the browser half reads and writes it through `ctx.configForms`). It is an independent third-party plugin and is not covered by the Harness `packages/*` test/coverage gates; integration must be verified in a running Harness.
+- This package requires DeepSeek Harness `0.1.7-rc.2` or a compatible `0.1.7` prerelease (plugin configuration is Cordis `Config`, and the browser half reads and writes it through `ctx.configForms`). It is an independent third-party plugin and is not covered by the Harness `packages/*` test/coverage gates; integration must be verified in a running Harness.
 - A prompt consumes context budget in every session of that workspace, so the longer it is, the less room is left for the conversation.
 
 ## Troubleshooting
