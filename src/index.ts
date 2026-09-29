@@ -38,6 +38,9 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
 import type { Session } from '@deepseek-ai/dsh-session'
+// Type-only: the `userQuestions` Context merge for the optional question seam.
+import type {} from '@deepseek-ai/dsh-user-questions'
+import { confirmRequest, readInclude, TurnDecisions } from './confirm.ts'
 import { buildMessage, enabledFor, promptFor, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from './inject.ts'
 import { ENABLED_FIELD, PROMPTS_FIELD } from './prompt-settings.ts'
 
@@ -81,6 +84,7 @@ export const Config = z.object({
 interface PreStepPayload {
   agent: Agent
   messages: readonly UserMessage[]
+  turn: number
   step: number
   signal: AbortSignal
 }
@@ -92,6 +96,9 @@ export function apply(ctx: Context, config: Config): void {
 
   // Message ids this plugin has minted, used to recognise its own inbox entries.
   const ours = new Set<string>()
+
+  // One answer per turn, reused by that turn's later steps.
+  const decisions = new TurnDecisions()
 
   const isOurs = (message: UserMessage): boolean => ours.has(message.id)
 
@@ -107,18 +114,43 @@ export function apply(ctx: Context, config: Config): void {
     desired: UserMessage | undefined,
   ): void => syncInbox(agent.inbox as InboxLike, claimed, isOurs, desired, surfaceFor(agent))
 
+  /**
+   * Ask this turn's human whether the armed prompt should enter.
+   *
+   * Only the explicit skip label and an explicit dismissal skip: the workspace
+   * is armed, so an unreadable answer keeps that standing intent. A missing
+   * service, no answerer (headless runs), a non-root or owned agent, and an
+   * aborted turn all fall back to injecting instead of blocking the turn on a
+   * question nobody can answer.
+   */
+  const confirmTurn = async (agent: Agent, turn: number, signal: AbortSignal): Promise<boolean> => {
+    const remembered = decisions.recall(agent.id, turn)
+    if (remembered !== undefined) return remembered
+    const questions = ctx.get('userQuestions')
+    if (questions === undefined) return true
+    let include = true
+    try {
+      include = readInclude(await questions.ask(confirmRequest(agent, signal)))
+    } catch (error) {
+      // A dismissal is an answer: this turn goes without the prompt, and the
+      // switch stays armed for the next one.
+      include = (error as { code?: unknown }).code !== 'ASK_CANCELLED'
+    }
+    decisions.record(agent.id, turn, include)
+    return include
+  }
+
   ctx.on('agent/pre-step', async (
-    { agent, messages, step, signal }: PreStepPayload,
+    { agent, messages, turn, step, signal }: PreStepPayload,
     next: () => Promise<PreStepDecision>,
   ): Promise<PreStepDecision> => {
     const decision = await next()
-    void signal
     const cwd = agent.session.header.cwd
     // The switch gates the prompt: an entry in `prompts` alone injects nothing.
     const text = cwd !== undefined && enabledFor(config.enabled.get(), cwd)
       ? promptFor(config.prompts.get(), cwd)
       : undefined
-    const desired = text !== undefined && text.length > 0 ? buildMessage(text) : undefined
+    let desired = text !== undefined && text.length > 0 ? buildMessage(text) : undefined
 
     if (decision.kind === 'reject' || (step === 1 && decision.messages.length === 0)) {
       // No model request proceeds: park the prompt as a pending inbox entry
@@ -126,6 +158,17 @@ export function apply(ctx: Context, config: Config): void {
       if (desired !== undefined) ours.add(desired.id)
       syncInboxFor(agent, messages, desired)
       return decision
+    }
+
+    // The prompt enters only where it would actually be injected: a copy that
+    // already stands in this turn's batch or in the recorded surface needs no
+    // decision, so no question is asked for it.
+    const pending = desired
+    if (pending !== undefined
+      && !surfaceSupplies(surfaceFor(agent), pending)
+      && !decision.messages.some(message => sameContent(message, pending))
+      && !await confirmTurn(agent, turn, signal)) {
+      desired = undefined
     }
 
     // A proceeding step settles the pending context: it either enters below

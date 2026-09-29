@@ -14,7 +14,7 @@
 
 1. **配置入口** —— 一个 `/workspace-prompt` 斜杠命令弹出模态框，含文本框与 **保存** / **清除** 按钮。打开时文本框回显当前已存的值；**清除** 删除该工作区的提示词与它的开关状态。
 2. **开关**（输入框工具行，官方插槽 `conversation.input.left`）—— 只在当前工作区**已配置提示词**时出现。文字自带状态：未开启显示 **工作区提示词-关**（无底色、次要文字色），开启后显示 **工作区提示词-开** 并带一层浅灰底色（与输入框里 ⊕ 按钮同一个灰）。点一下切换，状态按工作区记忆，默认关闭。
-3. **按需注入** —— 开关打开时，会话启动把提示词并入模型上下文，机制与官方 `agent-instructions`（`AGENTS.md`）一致：在 `agent/pre-step` 钩子里于 agent inbox 维护一条持久的 `user/message`。消息 source 是本插件自己声明的 `kind: 'workspace-prompt'`，并带 `form: 'instructions'` 上下文形式，因此 Web transcript 把它渲染成折叠的「上下文注入」行（与 AGENTS.md 同一形态），而不是一条用户气泡。关掉开关后不再注入。
+3. **逐轮确认 + 按需注入** —— 开关打开后，**真正要注入的那一刻**（会话上下文里还没有这段提示词）先弹一张确认卡：「本轮是否带上该工作区的工作区提示词？带上 / 不带」。选**带上**才注入；选**不带**只跳过本轮，**开关状态不变**，下一轮还会再问。举手的是官方 `ctx.userQuestions`（审批、计划评审用的是同一个通道），所以确认卡出现在该会话里，并且这一步会等到你回答才继续。注入本身仍与官方 `agent-instructions`（`AGENTS.md`）一致：在 `agent/pre-step` 钩子里于 agent inbox 维护一条持久的 `user/message`，source 是本插件自己声明的 `kind: 'workspace-prompt'`、带 `form: 'instructions'` 上下文形式，因此 Web transcript 把它渲染成折叠的「上下文注入」行（与 AGENTS.md 同一形态），而不是一条用户气泡。
 4. **持久化** —— 提示词与开关都是本插件自身 Cordis `Config` 的可实时编辑字段（`prompts` 与 `enabled`，即「工作区目录 → 提示词 / 是否开启」两张映射）。loader 行 id `workspace-prompt` 就是它的 settings 命名空间，由 Harness 的 user-settings provider 落盘到 Harness home 的 profile 文件，因此重启后仍然保留。
 
 ## 功能
@@ -29,7 +29,7 @@
 ## 要求
 
 - Node.js `^22.19` 或 `>=24`
-- DeepSeek Harness `0.1.7-rc.2` 或兼容的 `0.1.7` 预发布版本，以及提供 `ctx.settings` / `ctx.configForms` 与 `ctx.agent` 的 Web profile
+- DeepSeek Harness `0.1.7-rc.2` 或兼容的 `0.1.7` 预发布版本，以及提供 `ctx.settings` / `ctx.configForms` / `ctx.agent` 的 Web profile；逐轮确认还需要 `ctx.userQuestions`（Web profile 默认含 `@deepseek-ai/dsh-user-questions`，缺失时退回开关语义）
 - 本包只在 Web Client 端提供界面；不提供终端或桌面端入口
 
 ## 安装
@@ -58,7 +58,8 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-0.1.0.tgz
 1. 打开要配置的工作区内的任意会话。
 2. 输入 `/workspace-prompt`，选择 **配置工作区提示词**。
 3. 输入提示词，点击 **保存**。此时提示词只是被存下来，还不会注入。
-4. 在输入框工具行点击「工作区提示词」（标签从 `关` 变为 `开`）。此后该工作区发起的会话都会带上这段提示词；再点一次即停止注入。点击 **清除** 会同时移除提示词与开关状态。
+4. 在输入框工具行点击「工作区提示词」（标签从 `-关` 变为 `-开`）。
+5. 之后在该工作区发消息时，会先出现一张确认卡：选 **带上** 就把提示词并入本轮上下文；选 **不带** 只跳过本轮（开关仍是 `-开`，下一轮还会问）。点击 **清除** 会同时移除提示词与开关状态。
 
 也可以直接在 **设置 → 工作区提示词** 中管理：已配置的工作区以卡片展示，点击 **添加工作区** 会列出所有尚未配置提示词的已注册工作区，选中即可编辑保存。
 
@@ -67,7 +68,8 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-0.1.0.tgz
 ### Host 端（`src/index.ts` + `src/inject.ts`，作为 Cordis 插件加载）
 
 - 声明 Cordis `Config`：两个字段 —— `prompts: Record<absoluteDir, string>` 与 `enabled: Record<absoluteDir, boolean>`，都标记为 `.volatile()`，因此可以在设置表单里实时编辑。loader 行 id `workspace-prompt` 就是它的 settings 命名空间，Host 侧的改动由 Harness 的 settings provider 落到 profile 的用户层并实时推给插件（功能 4）。本插件自带设置页，因此在 `apply` 里通过 `ctx.settings.configure({ auto: false })` 关掉自动生成的配置页。
-- 监听 `agent/pre-step`。每一步都读取会话的 `header.cwd`；**只有该工作区的 `enabled` 为 `true`** 时才去取 `prompts`，命中就生成一条包在 `<system-reminder>` 里的 `user/message`，在 inbox 中维护它，并并入该步的决策，使其进入首个模型请求与持久化日志（功能 3）。纯注入、开关判定与 inbox 对账逻辑放在 `src/inject.ts`（`promptFor` / `enabledFor`），`src/index.ts` 负责把它接到 Cordis 上下文上。
+- 监听 `agent/pre-step`。每一步都读取会话的 `header.cwd`；**只有该工作区的 `enabled` 为 `true`** 时才去取 `prompts`。命中且该内容还没出现在会话上下文里时，先通过 `ctx.get('userQuestions')?.ask(...)` 问一次（每轮只问一次，答案在该轮的后续步骤里复用），选「带上」才生成一条包在 `<system-reminder>` 里的 `user/message`，在 inbox 中维护它，并并入该步的决策，使其进入首个模型请求与持久化日志（功能 3）。纯注入、开关判定与 inbox 对账逻辑放在 `src/inject.ts`（`promptFor` / `enabledFor`），提问载荷与判定放在 `src/confirm.ts`（`confirmQuestions` / `readInclude` / `TurnDecisions`），`src/index.ts` 负责把它们接到 Cordis 上下文上。
+- **问不到人时不阻塞**：profile 没有 `userQuestions` 服务、没人能应答（headless 运行）、当前 agent 是子代理或被托管（`DELEGATED_CALLER`）时，插件退回开关语义直接注入；用户点了关闭/忽略（`ASK_CANCELLED`）则视作本轮「不带」。
 
 ### Client 端（`src/client/index.ts`，作为插件的 `dsh.client` 半加载）
 
@@ -88,12 +90,15 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-0.1.0.tgz
 - 本包要求 DeepSeek Harness `0.1.7-rc.2` 或兼容的 `0.1.7` 预发布版本（插件配置即 Cordis `Config`，浏览器侧通过 `ctx.configForms` 读写）。它是独立的第三方插件，不受 Harness `packages/*` 的测试/覆盖率门禁约束；集成效果必须在运行中的 Harness 中验证。
 - 提示词只在开关打开时占用该工作区的上下文预算；写得越长，留给对话的空间越少。
 - 开关按工作区记忆：在一个会话里打开，该工作区的其他会话（含之后新建的）也会带上提示词，直到再次关闭。
+- 确认只在「真正要注入」时出现：一旦提示词已在该会话上下文里，之后的轮次不会再问（内容没变就无需重复注入）；改了提示词文本、或上下文被压缩掉之后，会重新问。同一个会话里多步之间只问一次。
+- 提问文案是**中英双语**：宿主侧发起的提问只带字面文本，Harness 的问题协议没有本地化通道；客户端自己的界面文案仍按语言字典渲染。
 
 ## 故障排查
 
 - **斜杠菜单里没有这一项** —— 只有当前会话有 `cwd` 时才提供该命令；在未绑定工作区的会话里它不会出现。
 - **提示词没有注入** —— 先看输入框工具行：开关默认是 `关`；没有这个开关就说明当前工作区还没配置提示词。开关是 `开` 时，再确认提示词保存在**当前会话所属工作区**的 key（绝对路径）下——会话的 `cwd` 与你在设置页看到的工作区路径必须完全一致。
 - **输入框里没有这个开关** —— 该工作区尚未配置提示词（这是设计如此）；用 `/workspace-prompt` 或设置页先保存一段。
+- **点了发送却没有出现确认卡** —— 说明这次发送本来就不需要注入：提示词已经在当前会话上下文里（只有真正要注入时才问），或者该 profile 没有 `userQuestions` 通道（headless / 子代理会话），此时按开关语义直接注入。
 - **升级插件后开关点不动 / 只变灰** —— 浏览器里的 client 半是每次刷新从磁盘取的，Host 半只在进程启动时加载：`dsh plugin add` 之后必须**重启 `dsh web`**，否则旧的 Host 会拒绝新字段（插件会直接在开关上提示这一点）。重启后旧的提示词仍保持关闭状态，需要为各工作区重新打开开关。
 - **重启后界面里没有插件** —— 用 `dsh --profile web-prompt --dump-config` 确认插件行已被组合进 profile；插件缺失时该行不会出现。
 
