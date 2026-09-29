@@ -357,15 +357,15 @@ describe('apply', () => {
     expect(enabled['/ws']).toBe(true)
   })
 
-  it('asks once per turn: later steps of the same turn reuse the answer', async () => {
+  it('asks once for the whole session, however many steps and turns follow', async () => {
     const loaded = loadPlugin({ answer: 'skip' })
     const { preStep, prompts, enabled } = loaded
     prompts['/ws'] = 'x'
     enabled['/ws'] = true
     const user = human('hi')
-    for (const step of [1, 2, 3]) {
+    for (const [turn, step] of [[1, 1], [1, 2], [2, 1]] as const) {
       await preStep(
-        { agent: fakeAgent('/ws'), messages: [user], turn: 4, step, signal: signal() },
+        { agent: fakeAgent('/ws'), messages: [user], turn, step, signal: signal() },
         async () => decision([user]),
       )
     }
@@ -373,20 +373,44 @@ describe('apply', () => {
     expect(loaded.asked).toHaveLength(1)
   })
 
-  it('asks again on the next turn, so a skip is not sticky', async () => {
+  it('keeps a skipped session skipped: later turns neither ask nor inject', async () => {
     const loaded = loadPlugin({ answer: 'skip' })
     const { preStep, prompts, enabled } = loaded
-    prompts['/ws'] = 'x'
+    prompts['/ws'] = '本会话不要'
     enabled['/ws'] = true
     const user = human('hi')
-    for (const turn of [1, 2]) {
-      await preStep(
+    for (const turn of [1, 2, 3]) {
+      const result = (await preStep(
         { agent: fakeAgent('/ws'), messages: [user], turn, step: 1, signal: signal() },
         async () => decision([user]),
-      )
+      )) as { messages: UserMessage[] }
+      expect(injectedMessages(result)).toHaveLength(0)
     }
 
-    expect(loaded.asked).toHaveLength(2)
+    expect(loaded.asked).toHaveLength(1)
+  })
+
+  it('keeps injecting an included session without asking again', async () => {
+    const loaded = loadPlugin({ answer: 'include' })
+    const { preStep, prompts, enabled } = loaded
+    prompts['/ws'] = '第一版'
+    enabled['/ws'] = true
+    const user = human('hi')
+    await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], turn: 1, step: 1, signal: signal() },
+      async () => decision([user]),
+    )
+
+    // The text changes later in the session: the standing "include" still
+    // applies, and the question is not repeated.
+    prompts['/ws'] = '第二版'
+    const result = (await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], turn: 2, step: 1, signal: signal() },
+      async () => decision([user]),
+    )) as { messages: UserMessage[] }
+
+    expect(injectedMessages(result)).toHaveLength(1)
+    expect(loaded.asked).toHaveLength(1)
   })
 
   it('keeps the armed prompt when nobody can answer (headless, owned agent)', async () => {
@@ -406,7 +430,7 @@ describe('apply', () => {
     }
   })
 
-  it('treats a dismissed question as a skip for that turn only', async () => {
+  it('treats a dismissed question as that session\u2019s skip', async () => {
     const loaded = loadPlugin({ answer: 'dismiss' })
     const { preStep, prompts, enabled } = loaded
     prompts['/ws'] = 'x'

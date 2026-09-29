@@ -40,7 +40,7 @@ import type { UserMessage } from '@deepseek-ai/dsh-llm'
 import type { Session } from '@deepseek-ai/dsh-session'
 // Type-only: the `userQuestions` Context merge for the optional question seam.
 import type {} from '@deepseek-ai/dsh-user-questions'
-import { confirmRequest, readInclude, TurnDecisions } from './confirm.ts'
+import { confirmRequest, readInclude, SessionDecisions } from './confirm.ts'
 import { buildMessage, enabledFor, promptFor, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from './inject.ts'
 import { ENABLED_FIELD, PROMPTS_FIELD } from './prompt-settings.ts'
 
@@ -97,8 +97,9 @@ export function apply(ctx: Context, config: Config): void {
   // Message ids this plugin has minted, used to recognise its own inbox entries.
   const ours = new Set<string>()
 
-  // One answer per turn, reused by that turn's later steps.
-  const decisions = new TurnDecisions()
+  // One answer per session: the question is asked the first time the prompt
+  // would enter, and that answer stands for the session's whole life.
+  const decisions = new SessionDecisions()
 
   const isOurs = (message: UserMessage): boolean => ours.has(message.id)
 
@@ -115,39 +116,46 @@ export function apply(ctx: Context, config: Config): void {
   ): void => syncInbox(agent.inbox as InboxLike, claimed, isOurs, desired, surfaceFor(agent))
 
   /**
-   * Ask this turn's human whether the armed prompt should enter.
+   * Ask this session's human, once, whether the armed prompt should enter.
    *
    * Only the explicit skip label and an explicit dismissal skip: the workspace
    * is armed, so an unreadable answer keeps that standing intent. A missing
-   * service, no answerer (headless runs), a non-root or owned agent, and an
-   * aborted turn all fall back to injecting instead of blocking the turn on a
-   * question nobody can answer.
+   * service, no answerer (headless runs), and a non-root or owned agent all
+   * fall back to injecting instead of blocking a session on a question nobody
+   * can answer — and are remembered, so the failed dispatch is not repeated on
+   * every later turn. An aborted turn decides nothing.
    */
-  const confirmTurn = async (agent: Agent, turn: number, signal: AbortSignal): Promise<boolean> => {
-    const remembered = decisions.recall(agent.id, turn)
-    if (remembered !== undefined) return remembered
+  const confirmOnce = async (agent: Agent, signal: AbortSignal): Promise<boolean> => {
     const questions = ctx.get('userQuestions')
     if (questions === undefined) return true
     let include = true
+    let decided = true
     try {
       include = readInclude(await questions.ask(confirmRequest(agent, signal)))
     } catch (error) {
-      // A dismissal is an answer: this turn goes without the prompt, and the
-      // switch stays armed for the next one.
-      include = (error as { code?: unknown }).code !== 'ASK_CANCELLED'
+      const code = (error as { code?: unknown }).code
+      // A dismissal is an answer: this session goes without the prompt, and
+      // the switch stays armed for the next session.
+      include = code !== 'ASK_CANCELLED'
+      // A cancelled turn decided nothing; every other failure is a stable
+      // property of this session (headless, owned agent).
+      decided = code !== 'ASK_ABORTED'
     }
-    decisions.record(agent.id, turn, include)
+    if (decided) decisions.record(agent.id, include)
     return include
   }
 
   ctx.on('agent/pre-step', async (
-    { agent, messages, turn, step, signal }: PreStepPayload,
+    { agent, messages, step, signal }: PreStepPayload,
     next: () => Promise<PreStepDecision>,
   ): Promise<PreStepDecision> => {
     const decision = await next()
     const cwd = agent.session.header.cwd
     // The switch gates the prompt: an entry in `prompts` alone injects nothing.
-    const text = cwd !== undefined && enabledFor(config.enabled.get(), cwd)
+    // A session that answered "skip" never sees the prompt, however the switch
+    // moves afterwards.
+    const decided = decisions.recall(agent.id)
+    const text = decided !== false && cwd !== undefined && enabledFor(config.enabled.get(), cwd)
       ? promptFor(config.prompts.get(), cwd)
       : undefined
     let desired = text !== undefined && text.length > 0 ? buildMessage(text) : undefined
@@ -161,13 +169,13 @@ export function apply(ctx: Context, config: Config): void {
     }
 
     // The prompt enters only where it would actually be injected: a copy that
-    // already stands in this turn's batch or in the recorded surface needs no
-    // decision, so no question is asked for it.
+    // already stands in this step's batch or in the recorded surface needs no
+    // decision, so the session is never asked about it.
     const pending = desired
     if (pending !== undefined
       && !surfaceSupplies(surfaceFor(agent), pending)
       && !decision.messages.some(message => sameContent(message, pending))
-      && !await confirmTurn(agent, turn, signal)) {
+      && !(decided ?? await confirmOnce(agent, signal))) {
       desired = undefined
     }
 

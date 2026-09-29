@@ -1,8 +1,8 @@
-/** The per-turn confirmation's pure parts: payload, answer reading, and turn memory. */
+/** The one-time confirmation's pure parts: payload, answer reading, and session memory. */
 
 import { describe, expect, it } from 'vitest'
 import {
-  CONFIRM_QUESTION_ID, INCLUDE_LABEL, SKIP_LABEL, TurnDecisions, confirmQuestions, readInclude,
+  CONFIRM_QUESTION_ID, INCLUDE_LABEL, SKIP_LABEL, SessionDecisions, confirmQuestions, readInclude,
 } from '../src/confirm.ts'
 
 describe('confirmQuestions', () => {
@@ -13,9 +13,14 @@ describe('confirmQuestions', () => {
     expect(questions[0]?.options?.map(option => option.label)).toEqual([INCLUDE_LABEL, SKIP_LABEL])
   })
 
-  it('states that skipping leaves the switch alone', () => {
+  it('states that skipping covers the rest of the session and leaves the switch alone', () => {
     const skip = confirmQuestions()[0]?.options?.find(option => option.label === SKIP_LABEL)
+    expect(skip?.description).toContain('本会话')
     expect(skip?.description).toContain('开关')
+  })
+
+  it('asks about the session, not one turn', () => {
+    expect(confirmQuestions()[0]?.question).toContain('本次会话')
   })
 })
 
@@ -41,40 +46,28 @@ describe('readInclude', () => {
   })
 })
 
-describe('TurnDecisions', () => {
-  it('has no answer for a turn that was never asked', () => {
-    expect(new TurnDecisions().recall('agent-1', 1)).toBeUndefined()
+describe('SessionDecisions', () => {
+  it('has no answer for a session that was never asked', () => {
+    expect(new SessionDecisions().recall('agent-1')).toBeUndefined()
   })
 
-  it('reuses the answer on that turn’s later steps', () => {
-    const decisions = new TurnDecisions()
-    decisions.record('agent-1', 3, false)
-    expect(decisions.recall('agent-1', 3)).toBe(false)
-  })
-
-  it('asks again on the next turn', () => {
-    const decisions = new TurnDecisions()
-    decisions.record('agent-1', 3, false)
-    expect(decisions.recall('agent-1', 4)).toBeUndefined()
+  it('keeps one answer for the session, however many turns follow', () => {
+    const decisions = new SessionDecisions()
+    decisions.record('agent-1', false)
+    expect(decisions.recall('agent-1')).toBe(false)
+    expect(decisions.recall('agent-1')).toBe(false)
   })
 
   it('keeps sessions apart', () => {
-    const decisions = new TurnDecisions()
-    decisions.record('agent-1', 3, false)
-    expect(decisions.recall('agent-2', 3)).toBeUndefined()
+    const decisions = new SessionDecisions()
+    decisions.record('agent-1', false)
+    expect(decisions.recall('agent-2')).toBeUndefined()
   })
 
-  it('ignores a stale turn recorded after a newer one', () => {
-    const decisions = new TurnDecisions()
-    decisions.record('agent-1', 5, true)
-    decisions.record('agent-1', 4, false)
-    expect(decisions.recall('agent-1', 5)).toBe(true)
-  })
-
-  it('replaces an earlier verdict for the same turn', () => {
-    const decisions = new TurnDecisions()
-    decisions.record('agent-1', 5, true)
-    decisions.record('agent-1', 5, false)
-    expect(decisions.recall('agent-1', 5)).toBe(false)
+  it('replaces an earlier verdict for the same session', () => {
+    const decisions = new SessionDecisions()
+    decisions.record('agent-1', true)
+    decisions.record('agent-1', false)
+    expect(decisions.recall('agent-1')).toBe(false)
   })
 })

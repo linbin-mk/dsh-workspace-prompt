@@ -1,15 +1,18 @@
 /**
- * Per-turn confirmation for one workspace's prompt (host half).
+ * One-time confirmation for one workspace's prompt (host half).
  *
  * The switch decides whether a workspace's prompt may be injected at all; this
- * module decides whether it enters *this* turn. It asks through the official
- * `ctx.userQuestions` seam — the same service approvals and plan review use —
- * so the question renders in the session it belongs to and the turn waits for
- * the answer. Nothing here writes configuration: answering "skip" leaves the
- * workspace's switch exactly as it was.
+ * module decides whether it enters *this session*. The question is asked once,
+ * the first time the prompt would actually be injected: "include" injects it
+ * for the session, "skip" leaves the session without it and the question is
+ * never asked again there. It asks through the official `ctx.userQuestions`
+ * seam — the same service approvals and plan review use — so the question
+ * renders in the session it belongs to and the step waits for the answer.
+ * Nothing here writes configuration: answering "skip" leaves the workspace's
+ * switch exactly as it was.
  *
  * Pure by construction: the question text, the answer reading, and the
- * per-turn memory carry no Cordis runtime, so `index.ts` only wires them.
+ * per-session memory carry no Cordis runtime, so `index.ts` only wires them.
  */
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import type { AskUserQuestionAnswer, AskUserQuestionItem } from '@deepseek-ai/dsh-user-questions/types';
@@ -53,25 +56,21 @@ export declare function confirmRequest(agent: Agent, signal: AbortSignal): AskUs
  */
 export declare function readInclude(answer: AskUserQuestionAnswer): boolean;
 /**
- * One turn's answer, remembered so later steps of the same turn never ask
- * again — and never re-decide. Only the newest turn per agent is kept: turns
- * are strictly ordered within a session, so an older entry can never be read
- * again.
+ * The session's answer, remembered for the session's whole life: the question
+ * is asked once, and a "skip" is never revisited. One boolean per live agent.
  */
-export declare class TurnDecisions {
-    private readonly latest;
+export declare class SessionDecisions {
+    private readonly decided;
     /**
-     * The answer already given for this turn.
+     * The answer this session already gave.
      * @param agentId - session agent identity.
-     * @param turn - turn number from the pre-step payload.
-     * @returns the recorded decision, or undefined when this turn has not been answered.
+     * @returns the recorded decision, or undefined when this session has not answered yet.
      */
-    recall(agentId: string, turn: number): boolean | undefined;
+    recall(agentId: string): boolean | undefined;
     /**
-     * Remember one turn's answer, replacing any older turn for that agent.
+     * Remember this session's answer.
      * @param agentId - session agent identity.
-     * @param turn - turn number from the pre-step payload.
-     * @param include - whether the prompt enters that turn.
+     * @param include - whether the prompt is welcome in this session.
      */
-    record(agentId: string, turn: number, include: boolean): void;
+    record(agentId: string, include: boolean): void;
 }

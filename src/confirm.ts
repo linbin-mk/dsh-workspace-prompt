@@ -1,15 +1,18 @@
 /**
- * Per-turn confirmation for one workspace's prompt (host half).
+ * One-time confirmation for one workspace's prompt (host half).
  *
  * The switch decides whether a workspace's prompt may be injected at all; this
- * module decides whether it enters *this* turn. It asks through the official
- * `ctx.userQuestions` seam — the same service approvals and plan review use —
- * so the question renders in the session it belongs to and the turn waits for
- * the answer. Nothing here writes configuration: answering "skip" leaves the
- * workspace's switch exactly as it was.
+ * module decides whether it enters *this session*. The question is asked once,
+ * the first time the prompt would actually be injected: "include" injects it
+ * for the session, "skip" leaves the session without it and the question is
+ * never asked again there. It asks through the official `ctx.userQuestions`
+ * seam — the same service approvals and plan review use — so the question
+ * renders in the session it belongs to and the step waits for the answer.
+ * Nothing here writes configuration: answering "skip" leaves the workspace's
+ * switch exactly as it was.
  *
  * Pure by construction: the question text, the answer reading, and the
- * per-turn memory carry no Cordis runtime, so `index.ts` only wires them.
+ * per-session memory carry no Cordis runtime, so `index.ts` only wires them.
  */
 
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -44,15 +47,15 @@ export function confirmQuestions(): AskUserQuestionItem[] {
   return [{
     id: CONFIRM_QUESTION_ID,
     header: '工作区提示词 Workspace prompt',
-    question: '本轮是否带上该工作区的工作区提示词？Include the workspace prompt in this turn?',
+    question: '本次会话是否带上该工作区的工作区提示词？Include the workspace prompt in this session?',
     options: [
       {
         label: INCLUDE_LABEL,
-        description: '并入本轮模型上下文。Fold it into this turn\u2019s model context.',
+        description: '并入本会话的模型上下文。Fold it into this session\u2019s model context.',
       },
       {
         label: SKIP_LABEL,
-        description: '本轮不注入，开关状态不变。Skip this turn only; the switch stays on.',
+        description: '本会话不再询问、也不注入，开关状态不变。Skip it for the rest of this session; the switch stays on.',
       },
     ],
   }]
@@ -85,34 +88,27 @@ export function readInclude(answer: AskUserQuestionAnswer): boolean {
 }
 
 /**
- * One turn's answer, remembered so later steps of the same turn never ask
- * again — and never re-decide. Only the newest turn per agent is kept: turns
- * are strictly ordered within a session, so an older entry can never be read
- * again.
+ * The session's answer, remembered for the session's whole life: the question
+ * is asked once, and a "skip" is never revisited. One boolean per live agent.
  */
-export class TurnDecisions {
-  private readonly latest = new Map<string, { turn: number; include: boolean }>()
+export class SessionDecisions {
+  private readonly decided = new Map<string, boolean>()
 
   /**
-   * The answer already given for this turn.
+   * The answer this session already gave.
    * @param agentId - session agent identity.
-   * @param turn - turn number from the pre-step payload.
-   * @returns the recorded decision, or undefined when this turn has not been answered.
+   * @returns the recorded decision, or undefined when this session has not answered yet.
    */
-  recall(agentId: string, turn: number): boolean | undefined {
-    const recorded = this.latest.get(agentId)
-    return recorded !== undefined && recorded.turn === turn ? recorded.include : undefined
+  recall(agentId: string): boolean | undefined {
+    return this.decided.get(agentId)
   }
 
   /**
-   * Remember one turn's answer, replacing any older turn for that agent.
+   * Remember this session's answer.
    * @param agentId - session agent identity.
-   * @param turn - turn number from the pre-step payload.
-   * @param include - whether the prompt enters that turn.
+   * @param include - whether the prompt is welcome in this session.
    */
-  record(agentId: string, turn: number, include: boolean): void {
-    const recorded = this.latest.get(agentId)
-    if (recorded !== undefined && recorded.turn > turn) return
-    this.latest.set(agentId, { turn, include })
+  record(agentId: string, include: boolean): void {
+    this.decided.set(agentId, include)
   }
 }
