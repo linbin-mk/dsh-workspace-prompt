@@ -22,6 +22,7 @@ import { Button, IconPlusOutlineRegular, Menu } from '@deepseek-ai/dsh-client-ui
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspacePromptsState } from './stores'
+import { PromptToggleChip, type PromptTogglePhase } from './WorkspacePromptToggle'
 import { mergePromptRows } from './rows'
 import { unconfiguredWorkspaces, type WorkspaceForPicker } from './workspaces'
 
@@ -34,6 +35,8 @@ export interface WorkspacePromptsSectionInjected {
   save: (cwd: string, text: string) => Promise<void>
   /** Remove one workspace prompt, then reload. */
   clear: (cwd: string) => Promise<void>
+  /** Arm or disarm one workspace's prompt, then reload. */
+  toggle: (cwd: string, enabled: boolean) => Promise<void>
 }
 
 /** Component props composed by the slot machinery for the section entry. */
@@ -109,6 +112,8 @@ interface PromptCardProps {
   name: string
   /** Persisted prompt text ('' for a fresh pending row). */
   text: string
+  /** Whether this workspace's prompt is armed for injection. */
+  enabled: boolean
   /** Fresh row picked from the Add menu (not persisted yet). */
   isNew: boolean
   /** Global busy state (list/write in flight). */
@@ -116,20 +121,29 @@ interface PromptCardProps {
   t: TranslateNS<'workspace-prompt'>
   onSave: (cwd: string, text: string) => Promise<void>
   onClear: (cwd: string) => Promise<void>
+  onToggle: (cwd: string, enabled: boolean) => Promise<void>
   onCancel: (cwd: string) => void
 }
 
 /** One workspace card: title + path, editable prompt, footer actions. */
 function PromptCard({
-  cwd, name, text, isNew, disabled, t, onSave, onClear, onCancel,
+  cwd, name, text, enabled, isNew, disabled, t, onSave, onClear, onToggle, onCancel,
 }: PromptCardProps): JSX.Element {
   const [draft, setDraft] = useState(text)
   const [busy, setBusy] = useState(false)
   const [focused, setFocused] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [armPhase, setArmPhase] = useState<PromptTogglePhase>('idle')
 
   // Follow the persisted value after a reload (post-save), while local edits win otherwise.
   useEffect(() => { setDraft(text) }, [text])
+
+  // A refused arm write reports itself on the chip for a moment, then clears.
+  useEffect(() => {
+    if (armPhase !== 'failed') return
+    const timer = setTimeout(() => { setArmPhase('idle') }, 2200)
+    return () => { clearTimeout(timer) }
+  }, [armPhase])
 
   const changed = draft !== text
   const saveEnabled = !disabled && !busy && draft.trim().length > 0 && (isNew || changed)
@@ -158,6 +172,13 @@ function PromptCard({
     }
   }
 
+  const arm = (next: boolean): void => {
+    setArmPhase('busy')
+    void onToggle(cwd, next)
+      .then(() => { setArmPhase('idle') })
+      .catch(() => { setArmPhase('failed') })
+  }
+
   return (
     <div style={{ ...card, borderColor: isNew ? 'var(--dsw-alias-brand-primary, #4176e6)' : undefined }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -165,6 +186,24 @@ function PromptCard({
           <div style={title}>{name}</div>
           <div style={{ ...pathText, marginTop: 2 }}>{cwd}</div>
         </div>
+        {/* A fresh row has nothing persisted to arm yet, so it carries no chip. */}
+        {!isNew && (
+          <PromptToggleChip
+            enabled={enabled}
+            disabled={disabled}
+            phase={armPhase}
+            labels={{
+              label: t('chip.label'),
+              on: t('chip.state.on'),
+              off: t('chip.state.off'),
+              onHint: t('chip.on.hint'),
+              offHint: t('chip.off.hint'),
+              readonlyHint: t('chip.readonly.hint'),
+              failedHint: t('chip.failed.hint'),
+            }}
+            onToggle={arm}
+          />
+        )}
         {isNew && <span style={newBadge}>{t('settings.new')}</span>}
       </div>
       <textarea
@@ -244,7 +283,7 @@ function workspaceItemLabel(name: string, path: string): ReactNode {
  * @returns the overview element tree.
  */
 export function WorkspacePromptsSection({
-  usePrompts, useWorkspaces, refresh, save, clear, t,
+  usePrompts, useWorkspaces, refresh, save, clear, toggle, t,
 }: WorkspacePromptsSectionProps): JSX.Element {
   const state: WorkspacePromptsState = usePrompts((value: WorkspacePromptsState) => value)
   const workspaces: { items: readonly WorkspaceForPicker[]; phase: string } = useWorkspaces(
@@ -364,11 +403,13 @@ export function WorkspacePromptsSection({
           cwd={row.cwd}
           name={nameFor(row.cwd)}
           text={row.text}
+          enabled={row.enabled}
           isNew={row.isNew}
           disabled={disabled}
           t={t}
           onSave={save}
           onClear={clear}
+          onToggle={toggle}
           onCancel={cancelWorkspace}
         />
       ))}

@@ -1,6 +1,6 @@
 {
   "name": "@linbin-mk/dsh-workspace-prompt",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Third-party DeepSeek Harness plugin: per-workspace custom prompt configured from a slash command and injected into the model context at session start.",
   "license": "MIT",
   "author": "linbin-mk (https://github.com/linbin-mk)",
@@ -55,9 +55,11 @@
         "@deepseek-ai/dsh-api-session-controller",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-commands",
+        "@deepseek-ai/dsh-client-ui-conversation",
         "@deepseek-ai/dsh-client-ui-input-trigger",
         "@deepseek-ai/dsh-client-ui-layout",
         "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-session",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-workspace"
       ]
@@ -79,10 +81,12 @@
     "@deepseek-ai/dsh-api-session-controller": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-locale": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-commands": "^0.1.7-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-input-trigger": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-layout": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-primitives": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-renderer": "^0.1.7-rc.2",
+    "@deepseek-ai/dsh-client-ui-session": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-settings": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-slots": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-workspace": "^0.1.7-rc.2",
@@ -109,6 +113,9 @@
     "@deepseek-ai/dsh-client-ui-commands": {
       "optional": true
     },
+    "@deepseek-ai/dsh-client-ui-conversation": {
+      "optional": true
+    },
     "@deepseek-ai/dsh-client-ui-input-trigger": {
       "optional": true
     },
@@ -119,6 +126,9 @@
       "optional": true
     },
     "@deepseek-ai/dsh-client-ui-renderer": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-session": {
       "optional": true
     },
     "@deepseek-ai/dsh-client-ui-settings": {
@@ -147,10 +157,12 @@
     "@deepseek-ai/dsh-api-session-controller": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-locale": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-commands": "^0.1.7-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-input-trigger": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-layout": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-primitives": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-renderer": "^0.1.7-rc.2",
+    "@deepseek-ai/dsh-client-ui-session": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-settings": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-slots": "^0.1.7-rc.2",
     "@deepseek-ai/dsh-client-ui-workspace": "^0.1.7-rc.2",

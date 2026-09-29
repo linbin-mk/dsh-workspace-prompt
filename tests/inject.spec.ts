@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildMessage, promptFor, renderPrompt, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from '../src/inject.ts'
+import { buildMessage, enabledFor, promptFor, renderPrompt, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from '../src/inject.ts'
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
 
 function message(id: string, text: string, source: UserMessage['source'] = { kind: 'user' }): UserMessage {
@@ -206,6 +206,20 @@ describe('syncInbox', () => {
     syncInbox(inbox, [], isOurs(owned), desired, undefined)
     expect(inbox.nextStep).toEqual([desired])
     expect(ops).toEqual(['replace:a->d', 'remove:b'])
+  })
+})
+
+describe('enabledFor', () => {
+  it('arms only the directory that carries an explicit true', () => {
+    expect(enabledFor({ '/ws': true }, '/ws')).toBe(true)
+    expect(enabledFor({ '/ws': true }, '/other')).toBe(false)
+    expect(enabledFor({ '/ws': false }, '/ws')).toBe(false)
+  })
+
+  it('leaves an unconfigured or malformed section disarmed', () => {
+    for (const section of [undefined, null, 'text', 7, ['/ws'], { '/ws': 'yes' }, { '/ws': 1 }]) {
+      expect(enabledFor(section, '/ws')).toBe(false)
+    }
   })
 })
 

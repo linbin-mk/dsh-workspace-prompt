@@ -44,6 +44,18 @@ export declare function buildMessage(text: string): UserMessage;
  * @returns the configured prompt, or undefined when none stands.
  */
 export declare function promptFor(prompts: unknown, cwd: string): string | undefined;
+/**
+ * Whether one workspace's prompt is armed for injection.
+ *
+ * The switch defaults to off: a configured prompt enters the model context
+ * only after the user turns the composer's workspace-prompt control on for
+ * that workspace. Narrowed like {@link promptFor}, so a hand-edited document
+ * cannot arm anything by accident.
+ * @param enabled - the live `enabled` Config field value.
+ * @param cwd - absolute workspace directory.
+ * @returns true only for an explicit `true` entry of that directory.
+ */
+export declare function enabledFor(enabled: unknown, cwd: string): boolean;
 /** Minimal session surface the injection logic reads to detect prior injections. */
 export interface SurfaceLike {
     /** Surface event sequences in model-visible order. */

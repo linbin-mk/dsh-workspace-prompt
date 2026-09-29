@@ -8,12 +8,19 @@
  * the same form, so the value the modal echoes next time and the value the
  * host injects come from one persisted source.
  *
+ * Feature 2 (arm control): registers a chip into `conversation.input.left` —
+ * the composer tool row, right of the permission and plan controls. The chip
+ * shows the current workspace's arm state and flips it through the same form
+ * (`enabled`); the Host injects the prompt only while it is on. The chip
+ * renders nothing for a workspace with no configured prompt, and its state is
+ * per workspace, so arming it in one Session arms the next Session too.
+ *
  * Feature 4 (settings overview): registers a `settings.section` navigation
  * entry inside the settings panel. The page lists every configured workspace
  * prompt and supports in-place modification and removal, writing through the
- * same form. An **Add workspace** picker (fed by the `useWorkspaces`
- * standard hook) offers the registered workspaces that have no prompt yet,
- * and picks one into a fresh editable row.
+ * same form, plus the same arm chip per row. An **Add workspace** picker (fed
+ * by the `useWorkspaces` standard hook) offers the registered workspaces that
+ * have no prompt yet, and picks one into a fresh editable row.
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
@@ -29,6 +36,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: the ui-layout slot declarations (`shell.overlay`).
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+// Type-only: the `conversation.input.left` SlotMap key this plugin occupies.
+import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+// Type-only: the session-scope standard seats (`sessionId`, `useSessions`).
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 // Type-only: pulls the `ctx.sessions` (session-controller), `ctx.remote`
 // (remotes), and `ctx.slots` (ui-renderer) Context merges plus the global
 // `useWorkspaces` standard-hook merge (ui-workspace) into this program.
@@ -36,8 +47,9 @@ import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { ENTRY_ID, type WorkspacePromptSettings } from '../prompt-settings.ts'
-import { promptFor, promptsView, setPrompt, unsetPrompt } from './config.ts'
+import { promptFor, promptsView, setEnabled, setPrompt, unsetPrompt } from './config.ts'
 import { WorkspacePromptModal } from './WorkspacePromptModal'
+import { WorkspacePromptChipEntry } from './WorkspacePromptToggle'
 import { WorkspacePromptsSection, type WorkspacePromptsSectionInjected } from './WorkspacePromptsSection'
 import { workspacePromptModal, workspacePrompts } from './stores'
 import { en, zh, type WorkspacePromptKey } from './locales'
@@ -76,6 +88,10 @@ export function apply(ctx: ClientContext): void {
   const clear = async (cwd: string): Promise<void> => {
     await write(unsetPrompt(form, cwd))
   }
+  /** Arm or disarm one workspace's prompt; the Host gates injection on it. */
+  const toggle = async (cwd: string, enabled: boolean): Promise<void> => {
+    await write(setEnabled(form, cwd, enabled))
+  }
   // Hand the persist verbs to the modal through the shared observable; `shell.overlay`
   // is a root-scoped slot whose entries receive no per-entry inject face.
   workspacePromptModal.handlers = { save, clear }
@@ -83,7 +99,13 @@ export function apply(ctx: ClientContext): void {
   // The settings overview reads the same form; every snapshot replacement (a
   // write answer or a Host invalidation) republishes its rows. Its writes are
   // the same verbs followed by a reload.
-  workspacePrompts.handlers = { view: () => promptsView(form.getSnapshot()) }
+  workspacePrompts.handlers = {
+    view: () => promptsView(form.getSnapshot()),
+    toggle: async (cwd, enabled) => {
+      await toggle(cwd, enabled)
+      await workspacePrompts.refresh()
+    },
+  }
   const adopt = (): void => {
     const view = promptsView(form.getSnapshot())
     workspacePrompts.adopt(view)
@@ -97,7 +119,19 @@ export function apply(ctx: ClientContext): void {
     refresh: () => workspacePrompts.refresh(),
     save: async (cwd, text) => { await save(cwd, text); await workspacePrompts.refresh() },
     clear: async (cwd) => { await clear(cwd); await workspacePrompts.refresh() },
+    toggle: async (cwd, enabled) => { await toggle(cwd, enabled); await workspacePrompts.refresh() },
   }
+
+  // The composer arm chip: `conversation.input.left` is a list slot declared by
+  // the resident composer bar, so this registration rides that declaration's
+  // lifetime. It renders nothing unless the Session's workspace has a prompt.
+  ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
+    name: 'conversation.input.left',
+    id: ENTRY_ID,
+    order: 0,
+    locale: ENTRY_ID,
+    inject: () => ({ hooks: { prompts: workspacePrompts }, toggle }),
+  }, WorkspacePromptChipEntry))
 
   // `shell.overlay` is a list slot declared by ui-layout; inject waits for that
   // declaration, then mounts the modal. The modal reads its open state and the

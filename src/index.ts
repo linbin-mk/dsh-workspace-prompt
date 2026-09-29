@@ -8,12 +8,14 @@
  * id (`workspace-prompt`) is the settings namespace, and the browser half
  * writes the same map through `ctx.configForms`.
  *
- * Injection (feature 2): the prompt is folded into the model context at
- * session start by mirroring the official `agent-instructions` mechanism — it
- * is entered exactly once, and later steps skip re-injection while an
- * identical copy still stands in the recorded session surface. It enters
- * again only when the configured text changes (or compaction drops the
- * earlier copy). A durable `user/message` carrying the prompt is managed in
+ * Injection (feature 2): the prompt enters the model context only while the
+ * workspace's arm switch (`enabled`) is on — configuring a prompt never
+ * injects it by itself. While armed, the prompt is folded in at session start
+ * by mirroring the official `agent-instructions` mechanism — it is entered
+ * exactly once, and later steps skip re-injection while an identical copy
+ * still stands in the recorded session surface. It enters again only when the
+ * configured text changes (or compaction drops the earlier copy). A durable
+ * `user/message` carrying the prompt is managed in
  * the agent inbox at `agent/pre-step`, so it appears in the first model
  * request and is recorded in the session log. The source declares this
  * plugin's own kind with the `instructions` context form, which marks the
@@ -36,15 +38,17 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
 import type { Session } from '@deepseek-ai/dsh-session'
-import { buildMessage, promptFor, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from './inject.ts'
-import { PROMPTS_FIELD } from './prompt-settings.ts'
+import { buildMessage, enabledFor, promptFor, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from './inject.ts'
+import { ENABLED_FIELD, PROMPTS_FIELD } from './prompt-settings.ts'
 
 export const name = 'workspace-prompt'
 
-/** Live plugin configuration; `prompts` is re-read at every pre-step. */
+/** Live plugin configuration; both maps are re-read at every pre-step. */
 export interface Config {
   /** Absolute workspace directory -> configured prompt text. */
   [PROMPTS_FIELD]: Volatile<Record<string, string>>
+  /** Absolute workspace directory -> whether its prompt is armed for injection. */
+  [ENABLED_FIELD]: Volatile<Record<string, boolean>>
 }
 
 /**
@@ -65,9 +69,13 @@ export interface Config {
  */
 const promptsField: z<Record<string, string>> = z.any().default({})
 
-/** Live per-workspace prompts, the only field the settings form edits. */
+/** Live per-workspace arm switches; `any` for the same read-only-section reason as `promptsField`. */
+const enabledField: z<Record<string, boolean>> = z.any().default({})
+
+/** Live per-workspace prompts and their arm switches, the only fields the settings form edits. */
 export const Config = z.object({
   [PROMPTS_FIELD]: promptsField.volatile(),
+  [ENABLED_FIELD]: enabledField.volatile(),
 })
 
 interface PreStepPayload {
@@ -106,7 +114,10 @@ export function apply(ctx: Context, config: Config): void {
     const decision = await next()
     void signal
     const cwd = agent.session.header.cwd
-    const text = cwd === undefined ? undefined : promptFor(config.prompts.get(), cwd)
+    // The switch gates the prompt: an entry in `prompts` alone injects nothing.
+    const text = cwd !== undefined && enabledFor(config.enabled.get(), cwd)
+      ? promptFor(config.prompts.get(), cwd)
+      : undefined
     const desired = text !== undefined && text.length > 0 ? buildMessage(text) : undefined
 
     if (decision.kind === 'reject' || (step === 1 && decision.messages.length === 0)) {

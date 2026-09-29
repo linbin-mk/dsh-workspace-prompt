@@ -8,12 +8,14 @@
  * id (`workspace-prompt`) is the settings namespace, and the browser half
  * writes the same map through `ctx.configForms`.
  *
- * Injection (feature 2): the prompt is folded into the model context at
- * session start by mirroring the official `agent-instructions` mechanism — it
- * is entered exactly once, and later steps skip re-injection while an
- * identical copy still stands in the recorded session surface. It enters
- * again only when the configured text changes (or compaction drops the
- * earlier copy). A durable `user/message` carrying the prompt is managed in
+ * Injection (feature 2): the prompt enters the model context only while the
+ * workspace's arm switch (`enabled`) is on — configuring a prompt never
+ * injects it by itself. While armed, the prompt is folded in at session start
+ * by mirroring the official `agent-instructions` mechanism — it is entered
+ * exactly once, and later steps skip re-injection while an identical copy
+ * still stands in the recorded session surface. It enters again only when the
+ * configured text changes (or compaction drops the earlier copy). A durable
+ * `user/message` carrying the prompt is managed in
  * the agent inbox at `agent/pre-step`, so it appears in the first model
  * request and is recorded in the session log. The source declares this
  * plugin's own kind with the `instructions` context form, which marks the
@@ -31,18 +33,22 @@
 import type { Context, Volatile } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
 import type { Session } from '@deepseek-ai/dsh-session';
-import { PROMPTS_FIELD } from './prompt-settings.ts';
+import { ENABLED_FIELD, PROMPTS_FIELD } from './prompt-settings.ts';
 export declare const name = "workspace-prompt";
-/** Live plugin configuration; `prompts` is re-read at every pre-step. */
+/** Live plugin configuration; both maps are re-read at every pre-step. */
 export interface Config {
     /** Absolute workspace directory -> configured prompt text. */
     [PROMPTS_FIELD]: Volatile<Record<string, string>>;
+    /** Absolute workspace directory -> whether its prompt is armed for injection. */
+    [ENABLED_FIELD]: Volatile<Record<string, boolean>>;
 }
-/** Live per-workspace prompts, the only field the settings form edits. */
+/** Live per-workspace prompts and their arm switches, the only fields the settings form edits. */
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     prompts: z<NoInfer<Record<string, string>>, NoInfer<Record<string, string>>, "volatile">;
+    enabled: z<NoInfer<Record<string, boolean>>, NoInfer<Record<string, boolean>>, "volatile">;
 }>>, Schemastery.ObjectT<NoInfer<{
     prompts: z<NoInfer<Record<string, string>>, NoInfer<Record<string, string>>, "volatile">;
+    enabled: z<NoInfer<Record<string, boolean>>, NoInfer<Record<string, boolean>>, "volatile">;
 }>>, "plain">;
 export declare function apply(ctx: Context, config: Config): void;
 export type { Session };

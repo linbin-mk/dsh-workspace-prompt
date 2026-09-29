@@ -45,6 +45,8 @@ export interface WorkspacePromptsEntry {
     cwd: string;
     /** Configured prompt text. */
     text: string;
+    /** Whether new sessions in this workspace inject the prompt. */
+    enabled: boolean;
 }
 /** Live state of the settings overview listing every configured workspace. */
 export interface WorkspacePromptsState {
@@ -59,6 +61,8 @@ export interface WorkspacePromptsState {
 export interface WorkspacePromptsHandlers {
     /** Read the shared config form's current state. */
     view: () => WorkspacePromptsView;
+    /** Arm or disarm one workspace's prompt, then republish the list. */
+    toggle: (cwd: string, enabled: boolean) => Promise<void>;
 }
 /**
  * Module-level observable backing the settings overview section, mirroring
@@ -77,7 +81,7 @@ export declare class WorkspacePromptsObservable {
     /**
      * Replace the live state from one config-form read. Empty prompts are
      * dropped and entries are ordered by workspace directory.
-     * @param view - status, write permission, and prompts read from the form.
+     * @param view - status, write permission, prompts, and arm switches read from the form.
      */
     adopt: (view: WorkspacePromptsView) => void;
     /** Re-read the shared config form (no-op before activation). */

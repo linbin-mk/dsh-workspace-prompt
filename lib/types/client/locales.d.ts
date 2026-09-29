@@ -2,6 +2,13 @@
 export declare const zh: {
     'command.description': string;
     'command.open': string;
+    'chip.label': string;
+    'chip.state.on': string;
+    'chip.state.off': string;
+    'chip.on.hint': string;
+    'chip.off.hint': string;
+    'chip.readonly.hint': string;
+    'chip.failed.hint': string;
     'modal.title': string;
     'modal.placeholder': string;
     'modal.cwd': string;
@@ -34,6 +41,13 @@ export declare const zh: {
 export declare const en: {
     'command.description': string;
     'command.open': string;
+    'chip.label': string;
+    'chip.state.on': string;
+    'chip.state.off': string;
+    'chip.on.hint': string;
+    'chip.off.hint': string;
+    'chip.readonly.hint': string;
+    'chip.failed.hint': string;
     'modal.title': string;
     'modal.placeholder': string;
     'modal.cwd': string;

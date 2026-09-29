@@ -22,11 +22,13 @@ export interface WorkspacePromptsView {
     writable: boolean;
     /** Configured prompt text by absolute workspace directory. */
     prompts: Record<string, string>;
+    /** Arm switch by absolute workspace directory; absent means off. */
+    enabled: Record<string, boolean>;
 }
 /**
  * Project one config-form snapshot into the overview's vocabulary.
  * @param snapshot - current shared config-form snapshot.
- * @returns the status, write permission, and prompts the overview renders.
+ * @returns the status, write permission, prompts, and arm switches the UI renders.
  */
 export declare function promptsView(snapshot: ConfigFormSnapshot<WorkspacePromptSettings>): WorkspacePromptsView;
 /**
@@ -46,8 +48,19 @@ export declare function promptFor(form: ConfigForm<WorkspacePromptSettings>, cwd
 export declare function setPrompt(form: ConfigForm<WorkspacePromptSettings>, cwd: string, text: string): Promise<boolean>;
 /**
  * Remove one workspace prompt.
+ *
+ * The workspace's arm switch goes with it: a switch left behind would arm the
+ * workspace again the moment a new prompt is saved to it.
  * @param form - shared config form for this plugin's entry.
  * @param cwd - absolute workspace directory.
  * @returns whether the Host accepted the clear (false for a refusal or a skipped write).
  */
 export declare function unsetPrompt(form: ConfigForm<WorkspacePromptSettings>, cwd: string): Promise<boolean>;
+/**
+ * Arm or disarm one workspace's prompt for the sessions started in it.
+ * @param form - shared config form for this plugin's entry.
+ * @param cwd - absolute workspace directory.
+ * @param enabled - whether that workspace's prompt should be injected.
+ * @returns whether the Host accepted the write (false for a refusal or a skipped write).
+ */
+export declare function setEnabled(form: ConfigForm<WorkspacePromptSettings>, cwd: string, enabled: boolean): Promise<boolean>;

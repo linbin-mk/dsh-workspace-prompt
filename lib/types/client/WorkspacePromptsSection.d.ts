@@ -28,6 +28,8 @@ export interface WorkspacePromptsSectionInjected {
     save: (cwd: string, text: string) => Promise<void>;
     /** Remove one workspace prompt, then reload. */
     clear: (cwd: string) => Promise<void>;
+    /** Arm or disarm one workspace's prompt, then reload. */
+    toggle: (cwd: string, enabled: boolean) => Promise<void>;
 }
 /** Component props composed by the slot machinery for the section entry. */
 export type WorkspacePromptsSectionProps = PropsRuntime<'settings.section'> & PropsLocale<'workspace-prompt'> & InjectFace<WorkspacePromptsSectionInjected>;
@@ -36,4 +38,4 @@ export type WorkspacePromptsSectionProps = PropsRuntime<'settings.section'> & Pr
  * @param props - composed slot props (client plugin registration).
  * @returns the overview element tree.
  */
-export declare function WorkspacePromptsSection({ usePrompts, useWorkspaces, refresh, save, clear, t, }: WorkspacePromptsSectionProps): JSX.Element;
+export declare function WorkspacePromptsSection({ usePrompts, useWorkspaces, refresh, save, clear, toggle, t, }: WorkspacePromptsSectionProps): JSX.Element;

@@ -8,6 +8,8 @@ interface LoadedPlugin {
   preStep: (payload: unknown, next: () => Promise<unknown>) => Promise<unknown>
   /** The live map the fake Config's volatile `prompts` reference resolves to. */
   prompts: Record<string, string>
+  /** The live map the fake Config's volatile `enabled` reference resolves to. */
+  enabled: Record<string, boolean>
   /** Automatic-page policies registered through `ctx.settings.configure`. */
   configured: Array<{ auto?: boolean }>
   /** Service names this plugin asked for through `ctx.inject`. */
@@ -18,11 +20,12 @@ interface LoadedPlugin {
 
 /**
  * A Cordis `ctx` stand-in that records the pre-step listener, the injected
- * services, and the settings presentation, plus the live prompt map behind the
- * Config reference the loader would pass to `apply`.
+ * services, and the settings presentation, plus the live prompt and arm maps
+ * behind the Config references the loader would pass to `apply`.
  */
 function loadPlugin(): LoadedPlugin {
   const prompts: Record<string, string> = {}
+  const enabled: Record<string, boolean> = {}
   const configured: Array<{ auto?: boolean }> = []
   const injected: string[] = []
   let childEffects = 0
@@ -46,9 +49,12 @@ function loadPlugin(): LoadedPlugin {
     },
     fiber: {},
   }
-  apply(ctx as never, { prompts: { get: () => prompts } } as never)
+  apply(ctx as never, {
+    prompts: { get: () => prompts },
+    enabled: { get: () => enabled },
+  } as never)
   if (preStep === undefined) throw new Error('plugin did not register a pre-step listener')
-  return { preStep, prompts, configured, injected, childEffects }
+  return { preStep, prompts, enabled, configured, injected, childEffects }
 }
 
 function human(text: string, id = 'human'): UserMessage {
@@ -79,6 +85,11 @@ function decision(messages: UserMessage[], kind: 'enter' | 'reject' = 'enter'): 
   return { kind, messages: [...messages] }
 }
 
+/** Whether one step's decision carries this plugin's context message. */
+function injectedMessages(result: { messages: UserMessage[] }): UserMessage[] {
+  return result.messages.filter(message => message.source.kind === 'workspace-prompt')
+}
+
 const signal = (): AbortSignal => new AbortController().signal
 
 describe('apply', () => {
@@ -92,9 +103,10 @@ describe('apply', () => {
     expect(loaded.childEffects).toBe(1)
   })
 
-  it('injects the cwd prompt as workspace-prompt context on step 1', async () => {
-    const { preStep, prompts } = loadPlugin()
+  it('injects the armed cwd prompt as workspace-prompt context on step 1', async () => {
+    const { preStep, prompts, enabled } = loadPlugin()
     prompts['/ws'] = '回答问题要幽默风趣'
+    enabled['/ws'] = true
     const user = human('hi')
     const result = (await preStep(
       { agent: fakeAgent('/ws'), messages: [user], step: 1, signal: signal() },
@@ -109,27 +121,81 @@ describe('apply', () => {
     expect(result.messages.indexOf(injected!)).toBe(1)
   })
 
-  it('re-reads the live Config at every step, so a saved prompt applies at once', async () => {
+  it('injects nothing while the configured prompt is not armed', async () => {
     const { preStep, prompts } = loadPlugin()
+    prompts['/ws'] = '配置了但不注入'
+    const user = human('hi')
+    const result = (await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], step: 1, signal: signal() },
+      async () => decision([user]),
+    )) as { messages: UserMessage[] }
+
+    expect(result.messages).toEqual([user])
+    expect(injectedMessages(result)).toHaveLength(0)
+  })
+
+  it('stops injecting again once the workspace is disarmed', async () => {
+    const { preStep, prompts, enabled } = loadPlugin()
+    prompts['/ws'] = 'x'
+    enabled['/ws'] = true
+    const user = human('hi')
+    await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], step: 1, signal: signal() },
+      async () => decision([user]),
+    )
+
+    enabled['/ws'] = false
+    const result = (await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], step: 2, signal: signal() },
+      async () => decision([user]),
+    )) as { messages: UserMessage[] }
+
+    expect(injectedMessages(result)).toHaveLength(0)
+  })
+
+  it('arms a workspace mid-session, so the next step carries the prompt', async () => {
+    const { preStep, prompts, enabled } = loadPlugin()
+    prompts['/ws'] = '刚刚打开的开关'
     const user = human('hi')
     const first = (await preStep(
       { agent: fakeAgent('/ws'), messages: [user], step: 1, signal: signal() },
       async () => decision([user]),
     )) as { messages: UserMessage[] }
-    expect(first.messages.some(message => message.source.kind === 'workspace-prompt')).toBe(false)
+    expect(injectedMessages(first)).toHaveLength(0)
 
-    prompts['/ws'] = '刚刚保存的提示词'
+    enabled['/ws'] = true
     const second = (await preStep(
       { agent: fakeAgent('/ws'), messages: [user], step: 2, signal: signal() },
       async () => decision([user]),
     )) as { messages: UserMessage[] }
-    const injected = second.messages.find(message => message.source.kind === 'workspace-prompt')
-    expect(injected?.content[0]).toMatchObject({ text: expect.stringContaining('刚刚保存的提示词') })
+    const injected = injectedMessages(second)
+    expect(injected).toHaveLength(1)
+    expect(injected[0]?.content[0]).toMatchObject({ text: expect.stringContaining('刚刚打开的开关') })
+  })
+
+  it('re-reads the live Config at every step, so a saved prompt applies at once', async () => {
+    const { preStep, prompts, enabled } = loadPlugin()
+    const user = human('hi')
+    const first = (await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], step: 1, signal: signal() },
+      async () => decision([user]),
+    )) as { messages: UserMessage[] }
+    expect(injectedMessages(first)).toHaveLength(0)
+
+    prompts['/ws'] = '刚刚保存的提示词'
+    enabled['/ws'] = true
+    const second = (await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], step: 2, signal: signal() },
+      async () => decision([user]),
+    )) as { messages: UserMessage[] }
+    const injected = injectedMessages(second)
+    expect(injected[0]?.content[0]).toMatchObject({ text: expect.stringContaining('刚刚保存的提示词') })
   })
 
   it('does not inject when the decision is rejected', async () => {
-    const { preStep, prompts } = loadPlugin()
+    const { preStep, prompts, enabled } = loadPlugin()
     prompts['/ws'] = 'x'
+    enabled['/ws'] = true
     const result = (await preStep(
       { agent: fakeAgent('/ws'), messages: [], step: 1, signal: signal() },
       async () => decision([], 'reject'),
@@ -147,12 +213,27 @@ describe('apply', () => {
     )) as { messages: UserMessage[] }
 
     expect(result.messages).toEqual([user])
-    expect(result.messages.some(message => message.source.kind === 'workspace-prompt')).toBe(false)
+    expect(injectedMessages(result)).toHaveLength(0)
+  })
+
+  it('stays disarmed for a workspace without an arm entry when another one is armed', async () => {
+    const { preStep, prompts, enabled } = loadPlugin()
+    prompts['/armed'] = 'armed text'
+    prompts['/quiet'] = 'quiet text'
+    enabled['/armed'] = true
+    const user = human('hi')
+    const result = (await preStep(
+      { agent: fakeAgent('/quiet'), messages: [user], step: 1, signal: signal() },
+      async () => decision([user]),
+    )) as { messages: UserMessage[] }
+
+    expect(injectedMessages(result)).toHaveLength(0)
   })
 
   it('does not re-inject when the desired message is already in the decision', async () => {
-    const { preStep, prompts } = loadPlugin()
+    const { preStep, prompts, enabled } = loadPlugin()
     prompts['/ws'] = 'x'
+    enabled['/ws'] = true
     const desired = buildMessage('x')
     const user = human('hi')
     const result = (await preStep(
@@ -164,8 +245,9 @@ describe('apply', () => {
   })
 
   it('splices the prompt after the last claimed message on later steps', async () => {
-    const { preStep, prompts } = loadPlugin()
+    const { preStep, prompts, enabled } = loadPlugin()
     prompts['/ws'] = 'x'
+    enabled['/ws'] = true
     const c1 = human('a', 'c1')
     const c2 = human('b', 'c2')
     const result = (await preStep(
@@ -179,8 +261,9 @@ describe('apply', () => {
   })
 
   it('does not re-inject on later steps when the prompt already stands in the session', async () => {
-    const { preStep, prompts } = loadPlugin()
+    const { preStep, prompts, enabled } = loadPlugin()
     prompts['/ws'] = 'x'
+    enabled['/ws'] = true
     const user = human('hi')
     const agent = fakeAgent('/ws', [], {
       nodes: [0],
@@ -192,12 +275,13 @@ describe('apply', () => {
     )) as { messages: UserMessage[] }
 
     expect(result.messages).toEqual([user])
-    expect(result.messages.some(message => message.source.kind === 'workspace-prompt')).toBe(false)
+    expect(injectedMessages(result)).toHaveLength(0)
   })
 
   it('re-injects the latest prompt when the configured text changed', async () => {
-    const { preStep, prompts } = loadPlugin()
+    const { preStep, prompts, enabled } = loadPlugin()
     prompts['/ws'] = '新的提示词'
+    enabled['/ws'] = true
     const user = human('hi')
     const agent = fakeAgent('/ws', [], {
       nodes: [0],

@@ -8,10 +8,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@deepseek-ai/dsh-llm': stub('dsh-llm'),
+      // Exact match only: the icons the chip renders come from this package's
+      // root entry, never from a subpath.
+      '@deepseek-ai/dsh-client-ui-primitives': stub('dsh-client-ui-primitives'),
     },
   },
   test: {
-    include: ['tests/**/*.spec.ts'],
+    include: ['tests/**/*.spec.ts', 'tests/**/*.spec.tsx'],
     environment: 'node',
   },
 })

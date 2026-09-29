@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { promptFor, promptsView, setPrompt, unsetPrompt } from '../src/client/config.ts'
+import { promptFor, promptsView, setEnabled, setPrompt, unsetPrompt } from '../src/client/config.ts'
 import type { ConfigForm, ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-settings/types'
 import type { WorkspacePromptSettings } from '../src/prompt-settings.ts'
 
 /** One scripted config-form snapshot; `value` is undefined until the Host answers. */
 function snapshot(
-  value: WorkspacePromptSettings | undefined,
+  value: { prompts: Record<string, string>; enabled?: Record<string, boolean> } | undefined,
   overrides: Partial<ConfigFormSnapshot<WorkspacePromptSettings>> = {},
 ): ConfigFormSnapshot<WorkspacePromptSettings> {
   return {
     status: value === undefined ? 'loading' : 'ready',
-    value,
+    value: value === undefined ? undefined : { enabled: {}, ...value },
     base: undefined,
     user: undefined,
     revision: 3,
@@ -47,17 +47,23 @@ describe('promptsView', () => {
       status: 'ready',
       writable: true,
       prompts: { '/ws': 'guidance' },
+      enabled: {},
     })
+  })
+
+  it('carries the arm switches beside the prompts', () => {
+    const { form } = formWith(snapshot({ prompts: { '/ws': 'guidance' }, enabled: { '/ws': true } }))
+    expect(promptsView(form.getSnapshot()).enabled).toEqual({ '/ws': true })
   })
 
   it('reports no prompts while the Host has not answered', () => {
     const { form } = formWith(snapshot(undefined))
-    expect(promptsView(form.getSnapshot())).toEqual({ status: 'loading', writable: true, prompts: {} })
+    expect(promptsView(form.getSnapshot())).toEqual({ status: 'loading', writable: true, prompts: {}, enabled: {} })
   })
 
   it('carries the refusal to write that disables the overview controls', () => {
     const { form } = formWith(snapshot({ prompts: {} }, { status: 'unavailable', writable: false, mode: 'memory' }))
-    expect(promptsView(form.getSnapshot())).toEqual({ status: 'unavailable', writable: false, prompts: {} })
+    expect(promptsView(form.getSnapshot())).toEqual({ status: 'unavailable', writable: false, prompts: {}, enabled: {} })
   })
 })
 
@@ -86,11 +92,27 @@ describe('setPrompt', () => {
   })
 })
 
-describe('unsetPrompt', () => {
-  it('removes exactly the addressed workspace directory', async () => {
+describe('setEnabled', () => {
+  it('addresses the arm switch of one workspace directory', async () => {
     const { form, writes } = formWith(snapshot({ prompts: { '/ws': 'guidance' } }))
+    await expect(setEnabled(form, '/ws', true)).resolves.toBe(true)
+    expect(writes).toEqual([[{ op: 'set', path: ['enabled', '/ws'], value: true }]])
+  })
+
+  it('reports a refused arm write instead of throwing', async () => {
+    const { form } = formWith(snapshot({ prompts: { '/ws': 'guidance' } }, { writable: false, mode: 'memory' }), false)
+    await expect(setEnabled(form, '/ws', true)).resolves.toBe(false)
+  })
+})
+
+describe('unsetPrompt', () => {
+  it('removes the addressed workspace directory and its arm switch in one write', async () => {
+    const { form, writes } = formWith(snapshot({ prompts: { '/ws': 'guidance' }, enabled: { '/ws': true } }))
     await expect(unsetPrompt(form, '/ws')).resolves.toBe(true)
-    expect(writes).toEqual([[{ op: 'unset', path: ['prompts', '/ws'] }]])
+    expect(writes).toEqual([[
+      { op: 'unset', path: ['prompts', '/ws'] },
+      { op: 'unset', path: ['enabled', '/ws'] },
+    ]])
   })
 
   it('reports a refused clear instead of throwing', async () => {

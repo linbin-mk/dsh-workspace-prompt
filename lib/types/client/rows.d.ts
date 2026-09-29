@@ -12,6 +12,8 @@ export interface WorkspacePromptRow {
     cwd: string;
     /** Persisted prompt text ('' for a fresh pending row). */
     text: string;
+    /** Whether the workspace's prompt is armed for injection (never true for a pending row). */
+    enabled: boolean;
     /** Fresh row picked from the Add menu (not persisted yet). */
     isNew: boolean;
 }

@@ -4,7 +4,7 @@ import type { WorkspacePromptsView } from '../src/client/config.ts'
 
 /** One config-form read the overview renders from. */
 function view(overrides: Partial<WorkspacePromptsView> = {}): WorkspacePromptsView {
-  return { status: 'ready', writable: true, prompts: {}, ...overrides }
+  return { status: 'ready', writable: true, prompts: {}, enabled: {}, ...overrides }
 }
 
 function observableWith(read: () => WorkspacePromptsView): WorkspacePromptsObservable {
@@ -21,10 +21,22 @@ describe('WorkspacePromptsObservable', () => {
       status: 'ready',
       writable: true,
       entries: [
-        { cwd: '/a', text: 'one' },
-        { cwd: '/b', text: 'two' },
+        { cwd: '/a', text: 'one', enabled: false },
+        { cwd: '/b', text: 'two', enabled: false },
       ],
     })
+  })
+
+  it('carries each workspace arm switch onto its entry', async () => {
+    const store = observableWith(() => view({
+      prompts: { '/a': 'one', '/b': 'two' },
+      enabled: { '/b': true },
+    }))
+    await store.refresh()
+    expect(store.getSnapshot().entries).toEqual([
+      { cwd: '/a', text: 'one', enabled: false },
+      { cwd: '/b', text: 'two', enabled: true },
+    ])
   })
 
   it('carries the config-form status and write permission the section disables on', async () => {
@@ -39,7 +51,7 @@ describe('WorkspacePromptsObservable', () => {
     expect(store.getSnapshot()).toEqual({
       status: 'ready',
       writable: true,
-      entries: [{ cwd: '/a', text: 'one' }],
+      entries: [{ cwd: '/a', text: 'one', enabled: false }],
     })
   })
 

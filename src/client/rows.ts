@@ -14,6 +14,8 @@ export interface WorkspacePromptRow {
   cwd: string
   /** Persisted prompt text ('' for a fresh pending row). */
   text: string
+  /** Whether the workspace's prompt is armed for injection (never true for a pending row). */
+  enabled: boolean
   /** Fresh row picked from the Add menu (not persisted yet). */
   isNew: boolean
 }
@@ -38,7 +40,7 @@ export function mergePromptRows(
   return [
     ...pending
       .filter(row => !persistedCwds.has(row.cwd))
-      .map(row => ({ cwd: row.cwd, text: '', isNew: true })),
-    ...entries.map(entry => ({ cwd: entry.cwd, text: entry.text, isNew: false })),
+      .map(row => ({ cwd: row.cwd, text: '', enabled: false, isNew: true })),
+    ...entries.map(entry => ({ cwd: entry.cwd, text: entry.text, enabled: entry.enabled, isNew: false })),
   ]
 }
