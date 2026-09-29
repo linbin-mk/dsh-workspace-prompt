@@ -1,11 +1,10 @@
 /**
  * The workspace-prompt arm control.
  *
- * One control, two states, deliberately not a switch: unarmed is a ghost chip
- * (dashed outline, muted glyph, dashed `OFF` tag), armed is a lit chip (brand
- * fill, white glyph, solid `ON` tag, focus glow). Colour is never the only
- * carrier — the tag changes word and the outline changes style — so the state
- * survives greyscale and reads without hovering.
+ * One chip, two states: off is the plain chip the sibling controls use — no
+ * fill and no outline — and on is the same chip in the theme's filled-control
+ * ink. Clicking flips it; nothing is drawn inside beyond the glyph and the
+ * label, and the hover text states which way the click goes.
  *
  * {@link WorkspacePromptChipEntry} is the composer occupant: it registers into
  * `conversation.input.left`, resolves the current Session's workspace, and
@@ -17,7 +16,7 @@
 
 import { useEffect, useState } from 'react'
 import type { CSSProperties, JSX } from 'react'
-import { IconEditOutlineRegular, IconSparkleRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconEditOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: the sessions-list snapshot the `useSessions` standard seat selects
 // over. The selector parameters below carry explicit annotations, the same way
@@ -46,10 +45,6 @@ export type WorkspacePromptChipProps =
 export interface PromptToggleLabels {
   /** Control name shown on both states. */
   label: string
-  /** Tag of the armed state. */
-  on: string
-  /** Tag of the unarmed state. */
-  off: string
   /** Hover text of the armed state. */
   onHint: string
   /** Hover text of the unarmed state. */
@@ -58,6 +53,8 @@ export interface PromptToggleLabels {
   readonlyHint: string
   /** Hover text after a refused write. */
   failedHint: string
+  /** Hover text while the Host half is older than this browser half. */
+  skewHint: string
 }
 
 /** Local write phase of one chip. */
@@ -68,8 +65,9 @@ const chipBase: CSSProperties = {
   alignItems: 'center',
   gap: 6,
   height: 28,
-  padding: '0 6px 0 8px',
+  padding: '0 8px',
   borderRadius: 'var(--dsw-radius-sm, 8px)',
+  border: 'none',
   font: 'inherit',
   fontSize: 13,
   lineHeight: '20px',
@@ -77,102 +75,60 @@ const chipBase: CSSProperties = {
   whiteSpace: 'nowrap',
   cursor: 'pointer',
   userSelect: 'none',
-  transition: 'background 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease',
+  transition: 'background 160ms ease, color 160ms ease',
 }
 
-/** Unarmed: a ghost chip — dashed outline, muted label, nothing filled. */
+/** Off: the plain chip every sibling control uses — no fill, no outline. */
 const idleChip: CSSProperties = {
   background: 'transparent',
-  border: '1px dashed var(--dsw-alias-border-l3, rgba(0, 0, 0, 0.12))',
   color: 'var(--dsw-alias-label-secondary, rgb(97, 102, 107))',
 }
 
-/** Unarmed under the pointer: the outline closes and the label firms up. */
+/** Off under the pointer: the standard hover fill, nothing more. */
 const idleChipLive: CSSProperties = {
   background: 'var(--dsw-alias-interactive-bg-hover, rgba(38, 49, 72, 0.06))',
-  border: '1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.1))',
   color: 'var(--dsw-alias-label-primary, rgb(15, 17, 21))',
 }
 
-/**
- * Armed: a solid chip in the theme's own filled-control ink (the same fill the
- * primary button uses), inverted label, and a halo that states the control is
- * on without changing its size.
- */
+/** On: the theme's own filled-control treatment (the primary button's ink). */
 const armedChip: CSSProperties = {
   background: 'var(--dsw-alias-button-primary-fill, rgb(15, 17, 21))',
-  border: '1px solid transparent',
   color: 'var(--dsw-alias-label-primary-foreground, rgb(255, 255, 255))',
-  boxShadow: '0 0 0 3px color-mix(in srgb, var(--dsw-alias-button-primary-fill, rgb(15, 17, 21)) 14%, transparent)',
 }
 
-/** Armed under the pointer: the halo deepens and the chip lifts. */
+/** On under the pointer: the same fill, one step lighter. */
 const armedChipLive: CSSProperties = {
-  ...armedChip,
-  background: 'var(--dsw-alias-button-primary-hover, rgb(15, 17, 21))',
-  boxShadow: '0 0 0 3px color-mix(in srgb, var(--dsw-alias-button-primary-fill, rgb(15, 17, 21)) 24%, transparent), '
-    + '0 2px 6px color-mix(in srgb, var(--dsw-alias-button-primary-fill, rgb(15, 17, 21)) 28%, transparent)',
+  background: 'var(--dsw-alias-button-primary-hover, rgb(60, 64, 70))',
+  color: 'var(--dsw-alias-label-primary-foreground, rgb(255, 255, 255))',
 }
 
-/** Refused write: the two-state design is kept, the outline turns to the error state. */
+/** Refused write: the label turns to the error state for a moment. */
 const failedChip: CSSProperties = {
-  background: 'transparent',
-  border: '1px solid var(--dsw-alias-state-error-primary, rgb(236, 19, 19))',
+  background: 'color-mix(in srgb, var(--dsw-alias-state-error-primary, rgb(236, 19, 19)) 10%, transparent)',
   color: 'var(--dsw-alias-state-error-primary, rgb(236, 19, 19))',
 }
 
-const glyphBase: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 18,
-  height: 18,
-  borderRadius: 6,
-}
-
-const idleGlyph: CSSProperties = { ...glyphBase, border: '1px dashed currentColor', opacity: 0.85 }
-
-const armedGlyph: CSSProperties = {
-  ...glyphBase,
-  border: '1px solid currentColor',
-  background: 'color-mix(in srgb, currentColor 18%, transparent)',
-}
-
-const tagBase: CSSProperties = {
-  padding: '1px 4px',
-  borderRadius: 4,
-  fontSize: 9,
-  fontWeight: 700,
-  letterSpacing: 0.4,
-  lineHeight: '11px',
-}
-
-const idleTag: CSSProperties = { ...tagBase, border: '1px dashed currentColor', opacity: 0.8 }
-
-/** Armed tag: the inverted micro-pill, the one part the ghost state has no equivalent of. */
-const armedTag: CSSProperties = {
-  ...tagBase,
-  background: 'var(--dsw-alias-label-primary-foreground, rgb(255, 255, 255))',
-  color: 'var(--dsw-alias-button-primary-fill, rgb(15, 17, 21))',
-}
+/** Why a chip refuses interaction while its persistent state stays visible. */
+export type PromptToggleReason = 'none' | 'readonly' | 'skew'
 
 /** The label the pointer currently reads. */
-function hintFor(enabled: boolean, phase: PromptTogglePhase, disabled: boolean, labels: PromptToggleLabels): string {
-  if (disabled && phase !== 'failed') return labels.readonlyHint
+function hintFor(enabled: boolean, phase: PromptTogglePhase, reason: PromptToggleReason, labels: PromptToggleLabels): string {
   if (phase === 'failed') return labels.failedHint
+  if (reason === 'skew') return labels.skewHint
+  if (reason === 'readonly') return labels.readonlyHint
   return enabled ? labels.onHint : labels.offHint
 }
 
 /**
  * One arm control, rendered from plain props.
- * @param props - enabled state, write phase, localized copy, and the click handler.
+ * @param props - enabled state, write phase, inert reason, localized copy, and the click handler.
  * @returns the chip element for either state.
  */
-export function PromptToggleChip({ enabled, disabled, phase, labels, onToggle }: {
+export function PromptToggleChip({ enabled, reason, phase, labels, onToggle }: {
   /** Whether the workspace's prompt is currently armed. */
   enabled: boolean
-  /** Whether the configuration refuses writes right now. */
-  disabled: boolean
+  /** Why the switch refuses interaction; `none` keeps it clickable. */
+  reason: PromptToggleReason
   /** Local write phase of this control. */
   phase: PromptTogglePhase
   /** Localized copy for both states. */
@@ -183,34 +139,33 @@ export function PromptToggleChip({ enabled, disabled, phase, labels, onToggle }:
   const [live, setLive] = useState(false)
   const failed = phase === 'failed'
   const state = failed ? failedChip : enabled ? (live ? armedChipLive : armedChip) : (live ? idleChipLive : idleChip)
-  const inert = disabled || phase === 'busy'
+  // Only an in-flight write truly disables the button: a `disabled` button
+  // swallows pointer events, and every other inert reason must stay hoverable
+  // so its tooltip can explain itself.
+  const inert = reason !== 'none' || phase === 'busy'
 
   return (
-    <Tooltip label={hintFor(enabled, phase, disabled, labels)} side="top" delayMs={400}>
+    <Tooltip label={hintFor(enabled, phase, reason, labels)} side="top" delayMs={400}>
       <button
         type="button"
         aria-label={labels.label}
         aria-pressed={enabled}
         aria-busy={phase === 'busy'}
-        disabled={inert}
+        aria-disabled={inert}
+        disabled={phase === 'busy'}
         style={{
           ...chipBase,
           ...state,
           ...(inert ? { cursor: 'not-allowed', opacity: 0.55 } : null),
         }}
-        onClick={() => { onToggle(!enabled) }}
+        onClick={() => { if (!inert) onToggle(!enabled) }}
         onMouseEnter={() => { setLive(true) }}
         onMouseLeave={() => { setLive(false) }}
         onFocus={() => { setLive(true) }}
         onBlur={() => { setLive(false) }}
       >
-        <span aria-hidden style={enabled && !failed ? armedGlyph : idleGlyph}>
-          {enabled && !failed ? <IconSparkleRegular size={11} /> : <IconEditOutlineRegular size={11} />}
-        </span>
+        <IconEditOutlineRegular size={13} />
         <span>{labels.label}</span>
-        <span aria-hidden style={enabled && !failed ? armedTag : idleTag}>
-          {enabled && !failed ? labels.on : labels.off}
-        </span>
       </button>
     </Tooltip>
   )
@@ -246,15 +201,20 @@ export function WorkspacePromptChipEntry({
 
   if (entry === undefined) return null
 
-  const disabled = state.status !== 'ready' || !state.writable
+  // The Host half resolves the section with its own schema: an upgraded
+  // browser half talking to a Host that has not been restarted yet finds no
+  // arm field there, and every write to it would be refused. Say so instead of
+  // letting the click fail.
+  const reason: PromptToggleReason = !state.switchSupported
+    ? 'skew'
+    : state.status !== 'ready' || !state.writable ? 'readonly' : 'none'
   const labels: PromptToggleLabels = {
     label: t('chip.label'),
-    on: t('chip.state.on'),
-    off: t('chip.state.off'),
     onHint: t('chip.on.hint'),
     offHint: t('chip.off.hint'),
     readonlyHint: t('chip.readonly.hint'),
     failedHint: t('chip.failed.hint'),
+    skewHint: t('chip.skew.hint'),
   }
 
   const switchTo = (next: boolean): void => {
@@ -264,5 +224,5 @@ export function WorkspacePromptChipEntry({
       .catch(() => { setPhase('failed') })
   }
 
-  return <PromptToggleChip enabled={entry.enabled} disabled={disabled} phase={phase} labels={labels} onToggle={switchTo} />
+  return <PromptToggleChip enabled={entry.enabled} reason={reason} phase={phase} labels={labels} onToggle={switchTo} />
 }

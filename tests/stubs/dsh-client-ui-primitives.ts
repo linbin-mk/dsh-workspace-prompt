@@ -18,7 +18,9 @@ export function Tooltip({ children }: { children: ReactNode }): ReactNode {
 
 /** Inert glyph stand-in; the chip only varies which icon it picks. */
 function glyph(name: string): () => ReactElement {
-  return () => createElement('svg', { 'data-glyph': name })
+  // Sized like the real icons: an unsized SVG stretches to its container and
+  // would make every chip-layout assertion meaningless.
+  return () => createElement('svg', { 'data-glyph': name, width: 16, height: 16, viewBox: '0 0 16 16' })
 }
 
 /** Pencil glyph shown while the workspace prompt is unarmed. */

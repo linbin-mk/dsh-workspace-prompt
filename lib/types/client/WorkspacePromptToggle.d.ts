@@ -1,11 +1,10 @@
 /**
  * The workspace-prompt arm control.
  *
- * One control, two states, deliberately not a switch: unarmed is a ghost chip
- * (dashed outline, muted glyph, dashed `OFF` tag), armed is a lit chip (brand
- * fill, white glyph, solid `ON` tag, focus glow). Colour is never the only
- * carrier — the tag changes word and the outline changes style — so the state
- * survives greyscale and reads without hovering.
+ * One chip, two states: off is the plain chip the sibling controls use — no
+ * fill and no outline — and on is the same chip in the theme's filled-control
+ * ink. Clicking flips it; nothing is drawn inside beyond the glyph and the
+ * label, and the hover text states which way the click goes.
  *
  * {@link WorkspacePromptChipEntry} is the composer occupant: it registers into
  * `conversation.input.left`, resolves the current Session's workspace, and
@@ -31,10 +30,6 @@ export type WorkspacePromptChipProps = PropsRuntime<'conversation.input.left'> &
 export interface PromptToggleLabels {
     /** Control name shown on both states. */
     label: string;
-    /** Tag of the armed state. */
-    on: string;
-    /** Tag of the unarmed state. */
-    off: string;
     /** Hover text of the armed state. */
     onHint: string;
     /** Hover text of the unarmed state. */
@@ -43,19 +38,23 @@ export interface PromptToggleLabels {
     readonlyHint: string;
     /** Hover text after a refused write. */
     failedHint: string;
+    /** Hover text while the Host half is older than this browser half. */
+    skewHint: string;
 }
 /** Local write phase of one chip. */
 export type PromptTogglePhase = 'idle' | 'busy' | 'failed';
+/** Why a chip refuses interaction while its persistent state stays visible. */
+export type PromptToggleReason = 'none' | 'readonly' | 'skew';
 /**
  * One arm control, rendered from plain props.
- * @param props - enabled state, write phase, localized copy, and the click handler.
+ * @param props - enabled state, write phase, inert reason, localized copy, and the click handler.
  * @returns the chip element for either state.
  */
-export declare function PromptToggleChip({ enabled, disabled, phase, labels, onToggle }: {
+export declare function PromptToggleChip({ enabled, reason, phase, labels, onToggle }: {
     /** Whether the workspace's prompt is currently armed. */
     enabled: boolean;
-    /** Whether the configuration refuses writes right now. */
-    disabled: boolean;
+    /** Why the switch refuses interaction; `none` keeps it clickable. */
+    reason: PromptToggleReason;
     /** Local write phase of this control. */
     phase: PromptTogglePhase;
     /** Localized copy for both states. */

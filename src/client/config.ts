@@ -26,6 +26,13 @@ export interface WorkspacePromptsView {
   prompts: Record<string, string>
   /** Arm switch by absolute workspace directory; absent means off. */
   enabled: Record<string, boolean>
+  /**
+   * Whether the Host's resolved section carries the arm field at all. A Host
+   * half older than the browser half resolves the section with its own schema,
+   * which has no `enabled` key, and refuses every write to it — so the switch
+   * reports "restart required" instead of failing on click.
+   */
+  switchSupported: boolean
 }
 
 /**
@@ -34,11 +41,15 @@ export interface WorkspacePromptsView {
  * @returns the status, write permission, prompts, and arm switches the UI renders.
  */
 export function promptsView(snapshot: ConfigFormSnapshot<WorkspacePromptSettings>): WorkspacePromptsView {
+  const value = snapshot.value
   return {
     status: snapshot.status,
     writable: snapshot.writable,
-    prompts: snapshot.value?.prompts ?? {},
-    enabled: snapshot.value?.enabled ?? {},
+    prompts: value?.prompts ?? {},
+    enabled: value?.enabled ?? {},
+    // No answer yet is not evidence of an old Host; the write controls stay
+    // disabled on their own until the section arrives.
+    switchSupported: value === undefined || Object.hasOwn(value, ENABLED_FIELD),
   }
 }
 

@@ -22,7 +22,7 @@ import { Button, IconPlusOutlineRegular, Menu } from '@deepseek-ai/dsh-client-ui
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspacePromptsState } from './stores'
-import { PromptToggleChip, type PromptTogglePhase } from './WorkspacePromptToggle'
+import { PromptToggleChip, type PromptTogglePhase, type PromptToggleReason } from './WorkspacePromptToggle'
 import { mergePromptRows } from './rows'
 import { unconfiguredWorkspaces, type WorkspaceForPicker } from './workspaces'
 
@@ -116,8 +116,8 @@ interface PromptCardProps {
   enabled: boolean
   /** Fresh row picked from the Add menu (not persisted yet). */
   isNew: boolean
-  /** Global busy state (list/write in flight). */
-  disabled: boolean
+  /** Why this row's switch refuses interaction (global busy state included). */
+  reason: PromptToggleReason
   t: TranslateNS<'workspace-prompt'>
   onSave: (cwd: string, text: string) => Promise<void>
   onClear: (cwd: string) => Promise<void>
@@ -127,8 +127,9 @@ interface PromptCardProps {
 
 /** One workspace card: title + path, editable prompt, footer actions. */
 function PromptCard({
-  cwd, name, text, enabled, isNew, disabled, t, onSave, onClear, onToggle, onCancel,
+  cwd, name, text, enabled, isNew, reason, t, onSave, onClear, onToggle, onCancel,
 }: PromptCardProps): JSX.Element {
+  const disabled = reason !== 'none'
   const [draft, setDraft] = useState(text)
   const [busy, setBusy] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -190,16 +191,15 @@ function PromptCard({
         {!isNew && (
           <PromptToggleChip
             enabled={enabled}
-            disabled={disabled}
+            reason={reason}
             phase={armPhase}
             labels={{
               label: t('chip.label'),
-              on: t('chip.state.on'),
-              off: t('chip.state.off'),
               onHint: t('chip.on.hint'),
               offHint: t('chip.off.hint'),
               readonlyHint: t('chip.readonly.hint'),
               failedHint: t('chip.failed.hint'),
+              skewHint: t('chip.skew.hint'),
             }}
             onToggle={arm}
           />
@@ -336,6 +336,9 @@ export function WorkspacePromptsSection({
   // write surface stays disabled until it is ready and writable.
   const busy = state.status === 'loading'
   const disabled = busy || !state.writable
+  // An upgraded browser half talking to a Host that has not been restarted
+  // finds no arm field in the resolved section; saying so beats a refusal.
+  const switchReason: PromptToggleReason = !state.switchSupported ? 'skew' : disabled ? 'readonly' : 'none'
 
   const addWorkspace = (cwd: string): void => {
     setPickerOpen(false)
@@ -364,6 +367,7 @@ export function WorkspacePromptsSection({
     <div>
       <h2>{t('settings.title')}</h2>
       <p>{t('settings.intro')}</p>
+      {!state.switchSupported && <p role="status" style={{ ...hint, color: 'var(--dsw-alias-state-error-primary, #c0392b)' }}>{t('settings.skew')}</p>}
 
       {/* Toolbar: configured-count summary on the left, Add picker on the right. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12 }}>
@@ -405,7 +409,7 @@ export function WorkspacePromptsSection({
           text={row.text}
           enabled={row.enabled}
           isNew={row.isNew}
-          disabled={disabled}
+          reason={switchReason}
           t={t}
           onSave={save}
           onClear={clear}

@@ -83,6 +83,8 @@ export interface WorkspacePromptsState {
   status: WorkspacePromptsView['status']
   /** Whether the Host document accepts writes; false also while unavailable. */
   writable: boolean
+  /** Whether the Host's section carries the arm field; false means it needs a restart. */
+  switchSupported: boolean
 }
 
 /** Data verbs for the settings overview, owned by the plugin apply (holds ctx). */
@@ -102,7 +104,7 @@ export interface WorkspacePromptsHandlers {
  */
 export class WorkspacePromptsObservable {
   private readonly listeners = new Set<() => void>()
-  private state: WorkspacePromptsState = { entries: [], status: 'loading', writable: false }
+  private state: WorkspacePromptsState = { entries: [], status: 'loading', writable: false, switchSupported: true }
   /** Set by the command half at activation; undefined only before first activation. */
   handlers: WorkspacePromptsHandlers | undefined
 
@@ -126,6 +128,7 @@ export class WorkspacePromptsObservable {
         .sort((a, b) => a.cwd.localeCompare(b.cwd)),
       status: view.status,
       writable: view.writable,
+      switchSupported: view.switchSupported,
     }
     this.emit()
   }

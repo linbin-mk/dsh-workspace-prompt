@@ -48,6 +48,7 @@ describe('promptsView', () => {
       writable: true,
       prompts: { '/ws': 'guidance' },
       enabled: {},
+      switchSupported: true,
     })
   })
 
@@ -56,14 +57,36 @@ describe('promptsView', () => {
     expect(promptsView(form.getSnapshot()).enabled).toEqual({ '/ws': true })
   })
 
+  it('reports a section without the arm field as a pre-upgrade Host half', () => {
+    // What an old Host resolves the section to: its schema has no `enabled`.
+    const { form } = formWith(snapshot({ prompts: { '/ws': 'guidance' } }))
+    const view = promptsView(form.getSnapshot())
+    expect(view.switchSupported).toBe(true)
+    const legacy = promptsView({
+      ...form.getSnapshot(),
+      value: { prompts: { '/ws': 'guidance' } } as WorkspacePromptSettings,
+    })
+    expect(legacy.switchSupported).toBe(false)
+    expect(legacy.enabled).toEqual({})
+  })
+
+  it('treats the pre-answer state as supported, leaving the write controls to their own gate', () => {
+    const { form } = formWith(snapshot(undefined))
+    expect(promptsView(form.getSnapshot()).switchSupported).toBe(true)
+  })
+
   it('reports no prompts while the Host has not answered', () => {
     const { form } = formWith(snapshot(undefined))
-    expect(promptsView(form.getSnapshot())).toEqual({ status: 'loading', writable: true, prompts: {}, enabled: {} })
+    expect(promptsView(form.getSnapshot())).toEqual({
+      status: 'loading', writable: true, prompts: {}, enabled: {}, switchSupported: true,
+    })
   })
 
   it('carries the refusal to write that disables the overview controls', () => {
     const { form } = formWith(snapshot({ prompts: {} }, { status: 'unavailable', writable: false, mode: 'memory' }))
-    expect(promptsView(form.getSnapshot())).toEqual({ status: 'unavailable', writable: false, prompts: {}, enabled: {} })
+    expect(promptsView(form.getSnapshot())).toEqual({
+      status: 'unavailable', writable: false, prompts: {}, enabled: {}, switchSupported: true,
+    })
   })
 })
 

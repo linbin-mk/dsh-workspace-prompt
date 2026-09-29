@@ -1,6 +1,6 @@
 {
   "name": "@linbin-mk/dsh-workspace-prompt",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Third-party DeepSeek Harness plugin: per-workspace custom prompt configured from a slash command and injected into the model context at session start.",
   "license": "MIT",
   "author": "linbin-mk (https://github.com/linbin-mk)",

@@ -24,6 +24,13 @@ export interface WorkspacePromptsView {
     prompts: Record<string, string>;
     /** Arm switch by absolute workspace directory; absent means off. */
     enabled: Record<string, boolean>;
+    /**
+     * Whether the Host's resolved section carries the arm field at all. A Host
+     * half older than the browser half resolves the section with its own schema,
+     * which has no `enabled` key, and refuses every write to it — so the switch
+     * reports "restart required" instead of failing on click.
+     */
+    switchSupported: boolean;
 }
 /**
  * Project one config-form snapshot into the overview's vocabulary.

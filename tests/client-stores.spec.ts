@@ -4,7 +4,7 @@ import type { WorkspacePromptsView } from '../src/client/config.ts'
 
 /** One config-form read the overview renders from. */
 function view(overrides: Partial<WorkspacePromptsView> = {}): WorkspacePromptsView {
-  return { status: 'ready', writable: true, prompts: {}, enabled: {}, ...overrides }
+  return { status: 'ready', writable: true, prompts: {}, enabled: {}, switchSupported: true, ...overrides }
 }
 
 function observableWith(read: () => WorkspacePromptsView): WorkspacePromptsObservable {
@@ -20,6 +20,7 @@ describe('WorkspacePromptsObservable', () => {
     expect(store.getSnapshot()).toEqual({
       status: 'ready',
       writable: true,
+      switchSupported: true,
       entries: [
         { cwd: '/a', text: 'one', enabled: false },
         { cwd: '/b', text: 'two', enabled: false },
@@ -39,10 +40,16 @@ describe('WorkspacePromptsObservable', () => {
     ])
   })
 
+  it('carries the Host-half version signal the switch reports on', async () => {
+    const store = observableWith(() => view({ switchSupported: false }))
+    await store.refresh()
+    expect(store.getSnapshot().switchSupported).toBe(false)
+  })
+
   it('carries the config-form status and write permission the section disables on', async () => {
     const store = observableWith(() => view({ status: 'unavailable', writable: false }))
     await store.refresh()
-    expect(store.getSnapshot()).toEqual({ status: 'unavailable', writable: false, entries: [] })
+    expect(store.getSnapshot()).toEqual({ status: 'unavailable', writable: false, switchSupported: true, entries: [] })
   })
 
   it('adopts a pushed snapshot without re-reading the form', () => {
@@ -51,6 +58,7 @@ describe('WorkspacePromptsObservable', () => {
     expect(store.getSnapshot()).toEqual({
       status: 'ready',
       writable: true,
+      switchSupported: true,
       entries: [{ cwd: '/a', text: 'one', enabled: false }],
     })
   })
@@ -59,6 +67,7 @@ describe('WorkspacePromptsObservable', () => {
     expect(new WorkspacePromptsObservable().getSnapshot()).toEqual({
       status: 'loading',
       writable: false,
+      switchSupported: true,
       entries: [],
     })
   })
@@ -66,7 +75,7 @@ describe('WorkspacePromptsObservable', () => {
   it('is a no-op before the handlers are wired', async () => {
     const store = new WorkspacePromptsObservable()
     await store.refresh()
-    expect(store.getSnapshot()).toEqual({ status: 'loading', writable: false, entries: [] })
+    expect(store.getSnapshot()).toEqual({ status: 'loading', writable: false, switchSupported: true, entries: [] })
   })
 
   it('notifies subscribers on every publication', async () => {

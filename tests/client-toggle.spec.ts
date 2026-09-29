@@ -1,11 +1,11 @@
 /**
- * Composer arm chip: presence and the two designed states.
+ * Composer arm chip: presence, the two states, and the inert reasons.
  *
  * The chip is rendered through `react-dom/server` with hand-fed props — the
  * same zero-machinery path the settings section's store tests use. What the
  * suite pins is the behavior a user sees: nothing at all for a workspace
- * without a prompt, an unarmed and an armed rendering that differ in more than
- * colour, and a disabled control while the configuration refuses writes.
+ * without a prompt, a plain off chip and an ink-filled on chip, and a control
+ * that names its reason instead of failing when it cannot be used.
  */
 
 import { createElement } from 'react'
@@ -20,7 +20,7 @@ const t = (key: keyof typeof zh): string => zh[key]
 
 /** One scripted store snapshot. */
 function storeState(overrides: Partial<WorkspacePromptsState> = {}): WorkspacePromptsState {
-  return { entries: [], status: 'ready', writable: true, ...overrides }
+  return { entries: [], status: 'ready', writable: true, switchSupported: true, ...overrides }
 }
 
 /** Props a session-scope slot entry receives for one scripted workspace. */
@@ -41,10 +41,9 @@ function props(
 const render = (state: WorkspacePromptsState, cwd: string | undefined): string =>
   renderToStaticMarkup(createElement(WorkspacePromptChipEntry, props(state, cwd)))
 
-/** The state a workspace with a configured prompt reports before it is armed. */
-const unarmed = (enabled: boolean): WorkspacePromptsState => storeState({
-  entries: [{ cwd: '/ws', text: 'guidance', enabled }],
-})
+/** The state a workspace with a configured prompt reports for one switch value. */
+const chipState = (enabled: boolean, overrides: Partial<WorkspacePromptsState> = {}): WorkspacePromptsState =>
+  storeState({ entries: [{ cwd: '/ws', text: 'guidance', enabled }], ...overrides })
 
 describe('WorkspacePromptChipEntry', () => {
   it('renders nothing for a workspace without a configured prompt', () => {
@@ -52,55 +51,58 @@ describe('WorkspacePromptChipEntry', () => {
   })
 
   it('renders nothing for a session without a workspace', () => {
-    expect(render(unarmed(false), undefined)).toBe('')
+    expect(render(chipState(false), undefined)).toBe('')
   })
 
   it('renders nothing while another workspace is the one configured', () => {
-    expect(render(unarmed(true), '/elsewhere')).toBe('')
+    expect(render(chipState(true), '/elsewhere')).toBe('')
   })
 
-  it('shows the unarmed design as a dashed, tag-carrying control', () => {
-    const markup = render(unarmed(false), '/ws')
+  it('shows the off chip as the plain control the siblings use', () => {
+    const markup = render(chipState(false), '/ws')
     expect(markup).toContain(zh['chip.label'])
     expect(markup).toContain('aria-pressed="false"')
-    expect(markup).toContain(zh['chip.state.off'])
-    expect(markup).toContain('dashed')
+    expect(markup).toContain('background:transparent')
     expect(markup).not.toContain('--dsw-alias-button-primary-fill')
-    expect(markup).not.toContain(zh['chip.state.on'])
   })
 
-  it('shows the armed design as a filled, tag-carrying control', () => {
-    const markup = render(unarmed(true), '/ws')
+  it('shows the on chip filled with the theme ink', () => {
+    const markup = render(chipState(true), '/ws')
     expect(markup).toContain(zh['chip.label'])
     expect(markup).toContain('aria-pressed="true"')
-    expect(markup).toContain(zh['chip.state.on'])
     expect(markup).toContain('--dsw-alias-button-primary-fill')
-    expect(markup).not.toContain(zh['chip.state.off'])
+    expect(markup).not.toContain('background:transparent')
   })
 
-  it('keeps the two states distinguishable without colour', () => {
-    const off = render(unarmed(false), '/ws')
-    const on = render(unarmed(true), '/ws')
-    expect(off).not.toBe(on)
-    // Both states name themselves: the tag differs, not just the fill.
-    expect(off).toContain(zh['chip.state.off'])
-    expect(on).toContain(zh['chip.state.on'])
+  it('draws no inner chrome beyond the glyph and the label', () => {
+    const markup = render(chipState(true), '/ws')
+    // The two states used to carry a bordered glyph box and an ON/OFF tag.
+    expect(markup).not.toContain('dashed')
+    expect(markup).not.toContain('linear-gradient')
+    expect(markup.match(/<span/g)?.length).toBe(1)
   })
 
-  it('disables the control while the Host document refuses writes', () => {
-    const markup = render(storeState({
-      entries: [{ cwd: '/ws', text: 'guidance', enabled: false }],
-      writable: false,
-    }), '/ws')
-    expect(markup).toContain('disabled')
-    expect(markup).toContain('aria-busy="false"')
+  it('keeps the click available while the configuration is writable', () => {
+    const markup = render(chipState(false), '/ws')
+    expect(markup).not.toContain('aria-disabled="true"')
+    expect(markup).not.toContain('disabled=""')
   })
 
-  it('disables the control until the Host answers with a section', () => {
-    const markup = render(storeState({
-      entries: [{ cwd: '/ws', text: 'guidance', enabled: false }],
-      status: 'loading',
-    }), '/ws')
-    expect(markup).toContain('disabled')
+  it('reports a read-only configuration instead of failing on click', () => {
+    const markup = render(chipState(false, { writable: false }), '/ws')
+    expect(markup).toContain('aria-disabled="true"')
+    // A really disabled button swallows the tooltip that explains it.
+    expect(markup).not.toContain('disabled=""')
+  })
+
+  it('reports a pre-upgrade Host half instead of failing on click', () => {
+    const markup = render(chipState(false, { switchSupported: false }), '/ws')
+    expect(markup).toContain('aria-disabled="true"')
+    expect(markup).not.toContain('disabled=""')
+  })
+
+  it('stays inert until the Host answers with a section', () => {
+    const markup = render(chipState(false, { status: 'loading' }), '/ws')
+    expect(markup).toContain('aria-disabled="true"')
   })
 })

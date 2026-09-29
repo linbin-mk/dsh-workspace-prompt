@@ -56,6 +56,8 @@ export interface WorkspacePromptsState {
     status: WorkspacePromptsView['status'];
     /** Whether the Host document accepts writes; false also while unavailable. */
     writable: boolean;
+    /** Whether the Host's section carries the arm field; false means it needs a restart. */
+    switchSupported: boolean;
 }
 /** Data verbs for the settings overview, owned by the plugin apply (holds ctx). */
 export interface WorkspacePromptsHandlers {
