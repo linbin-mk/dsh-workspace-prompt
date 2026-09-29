@@ -1,10 +1,10 @@
 /**
  * The workspace-prompt arm control.
  *
- * One chip, two states: off is the plain chip the sibling controls use — no
- * fill and no outline — and on is the same chip in the theme's filled-control
- * ink. Clicking flips it; nothing is drawn inside beyond the glyph and the
- * label, and the hover text states which way the click goes.
+ * One chip, two states, told apart by the label's own suffix and one step of
+ * fill: off is plain (no background, secondary label) and reads
+ * `Workspace prompt-off`, on carries the row's chip gray and reads
+ * `Workspace prompt-on`. Clicking flips it; nothing else is drawn inside.
  *
  * {@link WorkspacePromptChipEntry} is the composer occupant: it registers into
  * `conversation.input.left`, resolves the current Session's workspace, and
@@ -28,8 +28,10 @@ export interface WorkspacePromptChipInjected {
 export type WorkspacePromptChipProps = PropsRuntime<'conversation.input.left'> & PropsLocale<'workspace-prompt'> & InjectFace<WorkspacePromptChipInjected>;
 /** Already-localized copy one chip renders. */
 export interface PromptToggleLabels {
-    /** Control name shown on both states. */
-    label: string;
+    /** Control name while the prompt is armed (carries the state). */
+    labelOn: string;
+    /** Control name while the prompt is off (carries the state). */
+    labelOff: string;
     /** Hover text of the armed state. */
     onHint: string;
     /** Hover text of the unarmed state. */

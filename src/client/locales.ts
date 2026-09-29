@@ -2,7 +2,8 @@
 export const zh = {
   'command.description': '配置当前工作区的特定提示词',
   'command.open': '配置工作区提示词',
-  'chip.label': '工作区提示词',
+  'chip.label.on': '工作区提示词-开',
+  'chip.label.off': '工作区提示词-关',
   'chip.on.hint': '已开启：该工作区发起的会话会注入这段提示词。点击关闭。',
   'chip.off.hint': '未开启：会话不会注入这段提示词。点击开启。',
   'chip.readonly.hint': '配置当前不可写，无法切换。',
@@ -42,7 +43,8 @@ export const zh = {
 export const en = {
   'command.description': 'Configure a workspace-specific prompt for the current workspace',
   'command.open': 'Configure workspace prompt',
-  'chip.label': 'Workspace prompt',
+  'chip.label.on': 'Workspace prompt-on',
+  'chip.label.off': 'Workspace prompt-off',
   'chip.on.hint': 'On: sessions started in this workspace are given this prompt. Click to turn off.',
   'chip.off.hint': 'Off: sessions are not given this prompt. Click to turn on.',
   'chip.readonly.hint': 'The configuration is read-only right now.',

@@ -2,7 +2,8 @@
 export declare const zh: {
     'command.description': string;
     'command.open': string;
-    'chip.label': string;
+    'chip.label.on': string;
+    'chip.label.off': string;
     'chip.on.hint': string;
     'chip.off.hint': string;
     'chip.readonly.hint': string;
@@ -41,7 +42,8 @@ export declare const zh: {
 export declare const en: {
     'command.description': string;
     'command.open': string;
-    'chip.label': string;
+    'chip.label.on': string;
+    'chip.label.off': string;
     'chip.on.hint': string;
     'chip.off.hint': string;
     'chip.readonly.hint': string;

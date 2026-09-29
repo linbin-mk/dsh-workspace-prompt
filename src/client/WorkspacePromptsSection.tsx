@@ -194,7 +194,8 @@ function PromptCard({
             reason={reason}
             phase={armPhase}
             labels={{
-              label: t('chip.label'),
+              labelOn: t('chip.label.on'),
+              labelOff: t('chip.label.off'),
               onHint: t('chip.on.hint'),
               offHint: t('chip.off.hint'),
               readonlyHint: t('chip.readonly.hint'),

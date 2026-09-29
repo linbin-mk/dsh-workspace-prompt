@@ -1,10 +1,10 @@
 /**
  * The workspace-prompt arm control.
  *
- * One chip, two states: off is the plain chip the sibling controls use — no
- * fill and no outline — and on is the same chip in the theme's filled-control
- * ink. Clicking flips it; nothing is drawn inside beyond the glyph and the
- * label, and the hover text states which way the click goes.
+ * One chip, two states, told apart by the label's own suffix and one step of
+ * fill: off is plain (no background, secondary label) and reads
+ * `Workspace prompt-off`, on carries the row's chip gray and reads
+ * `Workspace prompt-on`. Clicking flips it; nothing else is drawn inside.
  *
  * {@link WorkspacePromptChipEntry} is the composer occupant: it registers into
  * `conversation.input.left`, resolves the current Session's workspace, and
@@ -43,8 +43,10 @@ export type WorkspacePromptChipProps =
 
 /** Already-localized copy one chip renders. */
 export interface PromptToggleLabels {
-  /** Control name shown on both states. */
-  label: string
+  /** Control name while the prompt is armed (carries the state). */
+  labelOn: string
+  /** Control name while the prompt is off (carries the state). */
+  labelOff: string
   /** Hover text of the armed state. */
   onHint: string
   /** Hover text of the unarmed state. */
@@ -90,16 +92,16 @@ const idleChipLive: CSSProperties = {
   color: 'var(--dsw-alias-label-primary, rgb(15, 17, 21))',
 }
 
-/** On: the theme's own filled-control treatment (the primary button's ink). */
+/** On: the row's own chip gray — the fill the composer's `+` control already uses. */
 const armedChip: CSSProperties = {
-  background: 'var(--dsw-alias-button-primary-fill, rgb(15, 17, 21))',
-  color: 'var(--dsw-alias-label-primary-foreground, rgb(255, 255, 255))',
+  background: 'var(--dsw-specific-selector, rgb(242, 243, 245))',
+  color: 'var(--dsw-alias-label-primary, rgb(15, 17, 21))',
 }
 
-/** On under the pointer: the same fill, one step lighter. */
+/** On under the pointer: the same gray, one step deeper. */
 const armedChipLive: CSSProperties = {
-  background: 'var(--dsw-alias-button-primary-hover, rgb(60, 64, 70))',
-  color: 'var(--dsw-alias-label-primary-foreground, rgb(255, 255, 255))',
+  background: 'var(--dsw-alias-interactive-bg-hover-solid, rgb(233, 235, 238))',
+  color: 'var(--dsw-alias-label-primary, rgb(15, 17, 21))',
 }
 
 /** Refused write: the label turns to the error state for a moment. */
@@ -148,7 +150,7 @@ export function PromptToggleChip({ enabled, reason, phase, labels, onToggle }: {
     <Tooltip label={hintFor(enabled, phase, reason, labels)} side="top" delayMs={400}>
       <button
         type="button"
-        aria-label={labels.label}
+        aria-label={enabled ? labels.labelOn : labels.labelOff}
         aria-pressed={enabled}
         aria-busy={phase === 'busy'}
         aria-disabled={inert}
@@ -165,7 +167,7 @@ export function PromptToggleChip({ enabled, reason, phase, labels, onToggle }: {
         onBlur={() => { setLive(false) }}
       >
         <IconEditOutlineRegular size={13} />
-        <span>{labels.label}</span>
+        <span>{enabled ? labels.labelOn : labels.labelOff}</span>
       </button>
     </Tooltip>
   )
@@ -209,7 +211,8 @@ export function WorkspacePromptChipEntry({
     ? 'skew'
     : state.status !== 'ready' || !state.writable ? 'readonly' : 'none'
   const labels: PromptToggleLabels = {
-    label: t('chip.label'),
+    labelOn: t('chip.label.on'),
+    labelOff: t('chip.label.off'),
     onHint: t('chip.on.hint'),
     offHint: t('chip.off.hint'),
     readonlyHint: t('chip.readonly.hint'),

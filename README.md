@@ -13,7 +13,7 @@
 它不改任何 Harness 源码，实现四件事：
 
 1. **配置入口** —— 一个 `/workspace-prompt` 斜杠命令弹出模态框，含文本框与 **保存** / **清除** 按钮。打开时文本框回显当前已存的值；**清除** 删除该工作区的提示词与它的开关状态。
-2. **开关**（输入框工具行，官方插槽 `conversation.input.left`）—— 只在当前工作区**已配置提示词**时出现。没打开时就是一个普通 chip（无底色、次要文字色），点一下变成深色实心，再点一下恢复；没有额外的框或状态标签。状态按工作区记忆，默认关闭。
+2. **开关**（输入框工具行，官方插槽 `conversation.input.left`）—— 只在当前工作区**已配置提示词**时出现。文字自带状态：未开启显示 **工作区提示词-关**（无底色、次要文字色），开启后显示 **工作区提示词-开** 并带一层浅灰底色（与输入框里 ⊕ 按钮同一个灰）。点一下切换，状态按工作区记忆，默认关闭。
 3. **按需注入** —— 开关打开时，会话启动把提示词并入模型上下文，机制与官方 `agent-instructions`（`AGENTS.md`）一致：在 `agent/pre-step` 钩子里于 agent inbox 维护一条持久的 `user/message`。消息 source 是本插件自己声明的 `kind: 'workspace-prompt'`，并带 `form: 'instructions'` 上下文形式，因此 Web transcript 把它渲染成折叠的「上下文注入」行（与 AGENTS.md 同一形态），而不是一条用户气泡。关掉开关后不再注入。
 4. **持久化** —— 提示词与开关都是本插件自身 Cordis `Config` 的可实时编辑字段（`prompts` 与 `enabled`，即「工作区目录 → 提示词 / 是否开启」两张映射）。loader 行 id `workspace-prompt` 就是它的 settings 命名空间，由 Harness 的 user-settings provider 落盘到 Harness home 的 profile 文件，因此重启后仍然保留。
 
@@ -74,7 +74,7 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-0.1.0.tgz
 - 注册名为 `workspace-prompt` 的 `CommandContribution`。斜杠菜单项仅在当前会话有 `cwd` 时才出现。
 - 注册一个 `shell.overlay` 模态框（`WorkspacePromptModal`），接到一个小的 `HostObservable` 上。选择该命令时通过共享配置表单（`ctx.configForms.get('workspace-prompt')`，entry id 与 loader 行 id 一致）读取当前值并打开模态框；表单不可写（例如非本机页面的 memory 模式）时，保存/清除按钮保持禁用。
 - **保存** / **清除** 通过同一个共享配置表单回写（`form.mutate`，对 `prompts.<cwd>` 执行 `set` / `unset` 路径操作；清除会同时 `unset` `enabled.<cwd>`；Host 拒绝时表单返回 `false`，界面按失败提示），因此回显的值与注入的值共用同一数据源。
-- 注册输入框工具行的开关（`conversation.input.left`，`WorkspacePromptToggle`）：它用 `useSessions` 取当前会话的 `cwd`，只在状态里存在该工作区的提示词时渲染；点击写 `enabled.<cwd>`。两态就是同一个 chip 的两种底色：关闭=透明 + 次要文字色，开启=`--dsw-alias-button-primary-fill`（主题的实心控件底色，也就是主按钮那层墨色）+ 前景色。写失败、配置只读、以及 **Host 半仍是升级前版本** 时，控件不再真的 `disabled`（真 disabled 会吞掉 tooltip），而是 `aria-disabled` + 变灰，悬停时说明原因。
+- 注册输入框工具行的开关（`conversation.input.left`，`WorkspacePromptToggle`）：它用 `useSessions` 取当前会话的 `cwd`，只在状态里存在该工作区的提示词时渲染；点击写 `enabled.<cwd>`。两态就是同一个 chip 的两种底色与两种标签：关闭 = 透明底 + 次要文字色 + `-关`，开启 = `--dsw-specific-selector` 浅灰底 + 主文字色 + `-开`。写失败、配置只读、以及 **Host 半仍是升级前版本** 时，控件不再真的 `disabled`（真 disabled 会吞掉 tooltip），而是 `aria-disabled` + 变灰，悬停时说明原因。
 - 注册 **设置 → 工作区提示词** 总览页（`settings.section`）。已配置的工作区以卡片形式列出，可就地修改/清除；**添加工作区** 下拉——数据来自 `useWorkspaces` 标准钩子——只列出当前**尚未配置提示词**的已注册工作区，选中后展开一张可编辑的新卡片，保存即持久化。页面同样订阅共享配置表单：写入结果与 Host 侧变更都会立即反映到列表，表单未就绪或不可写时所有写入控件禁用。
 
 ## 为什么入口是斜杠命令，而不是工作区「更多」弹出菜单

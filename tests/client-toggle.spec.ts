@@ -58,19 +58,21 @@ describe('WorkspacePromptChipEntry', () => {
     expect(render(chipState(true), '/elsewhere')).toBe('')
   })
 
-  it('shows the off chip as the plain control the siblings use', () => {
+  it('shows the off chip as the plain control the siblings use, labelled with its state', () => {
     const markup = render(chipState(false), '/ws')
-    expect(markup).toContain(zh['chip.label'])
+    expect(markup).toContain(zh['chip.label.off'])
+    expect(markup).not.toContain(zh['chip.label.on'])
     expect(markup).toContain('aria-pressed="false"')
     expect(markup).toContain('background:transparent')
-    expect(markup).not.toContain('--dsw-alias-button-primary-fill')
+    expect(markup).not.toContain('--dsw-specific-selector')
   })
 
-  it('shows the on chip filled with the theme ink', () => {
+  it('shows the on chip in the row gray, labelled with its state', () => {
     const markup = render(chipState(true), '/ws')
-    expect(markup).toContain(zh['chip.label'])
+    expect(markup).toContain(zh['chip.label.on'])
+    expect(markup).not.toContain(zh['chip.label.off'])
     expect(markup).toContain('aria-pressed="true"')
-    expect(markup).toContain('--dsw-alias-button-primary-fill')
+    expect(markup).toContain('--dsw-specific-selector')
     expect(markup).not.toContain('background:transparent')
   })
 
