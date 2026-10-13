@@ -29,7 +29,7 @@ It changes no Harness source and implements four things:
 ## Requirements
 
 - Node.js `^22.19` or `>=24`
-- DeepSeek Harness `0.1.7-rc.2` or a compatible `0.1.7` prerelease, with a Web profile that provides `ctx.settings` / `ctx.configForms` / `ctx.agent`; the per-turn confirmation also needs `ctx.userQuestions` (shipped in the Web profile through `@deepseek-ai/dsh-user-questions`; without it the plugin falls back to the switch)
+- DeepSeek Harness `0.2.1-alpha.2` or a compatible `0.2` prerelease, with a Web profile that provides `ctx.settings` / `ctx.configForms` / `ctx.agent`; the once-per-session confirmation also needs `ctx.userQuestions` (shipped in the Web profile through `@deepseek-ai/dsh-user-questions`; without it the plugin falls back to the switch)
 - The user interface is offered on the Web Client only; there is no terminal or desktop entry point
 
 ## Install
@@ -48,7 +48,7 @@ Or install a locally built tarball:
 pnpm install
 pnpm build          # tsc emits lib/types/*.d.ts; tsdown emits lib/index.js + lib/client.js
 pnpm pack
-dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-0.1.0.tgz
+dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-<version>.tgz
 ```
 
 Because the package declares a `dsh.client` entry, the web shell loads `lib/client.js` automatically once the plugin is part of the composed tree; the node half (`lib/index.js`) declares the live-editable `Config` and injects the prompt at `agent/pre-step`.
@@ -87,7 +87,7 @@ The workspace action popup (`重命名` / `删除工作区`) in `packages/client
 
 - Switch and prompt changes apply from the next step: turning the switch on mid-session adds the prompt to that session's next request, and editing the text appends the new value while the earlier one stays in history.
 - The modal entry point is the slash command, not the workspace "more" popup (see above).
-- This package requires DeepSeek Harness `0.1.7-rc.2` or a compatible `0.1.7` prerelease (plugin configuration is Cordis `Config`, and the browser half reads and writes it through `ctx.configForms`). It is an independent third-party plugin and is not covered by the Harness `packages/*` test/coverage gates; integration must be verified in a running Harness.
+- This package requires DeepSeek Harness `0.2.1-alpha.2` or a compatible `0.2` prerelease (plugin configuration is Cordis `Config`, and the browser half reads and writes it through `ctx.configForms`). It is an independent third-party plugin and is not covered by the Harness `packages/*` test/coverage gates; integration must be verified in a running Harness.
 - A prompt consumes context budget only while the switch is on, so the longer it is, the less room is left for the conversation.
 - The switch is remembered per workspace: turning it on in one session arms the workspace's other sessions (including later ones) until it is turned off again.
 - Each session is asked **once**: a session that answered "skip" is never asked again and never injected (to change your mind mid-session, turn the switch off and on again — a new session asks fresh). A session that answered "include" re-injects the newest text directly, without asking, if the text changes or compaction drops it.

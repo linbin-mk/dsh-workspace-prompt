@@ -197,7 +197,10 @@ export function apply(ctx: Context, config: Config): void {
 
     const lastClaimedIndex = decision.messages.findLastIndex(message => messages.includes(message))
     const entered = decision.messages.toSpliced(lastClaimedIndex + 1, 0, desired)
-    return { kind: 'enter', messages: entered }
+    // Spread the settled decision rather than rebuilding it: an inner listener
+    // may have marked it, and `startsRequestSeries` (set by the goal-round
+    // driver of 0.2.x) steers request assembly, so rebuilding would drop it.
+    return { ...decision, messages: entered }
   })
 }
 

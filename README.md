@@ -29,7 +29,7 @@
 ## 要求
 
 - Node.js `^22.19` 或 `>=24`
-- DeepSeek Harness `0.1.7-rc.2` 或兼容的 `0.1.7` 预发布版本，以及提供 `ctx.settings` / `ctx.configForms` / `ctx.agent` 的 Web profile；逐轮确认还需要 `ctx.userQuestions`（Web profile 默认含 `@deepseek-ai/dsh-user-questions`，缺失时退回开关语义）
+- DeepSeek Harness `0.2.1-alpha.2` 或兼容的 `0.2` 预发布版本，以及提供 `ctx.settings` / `ctx.configForms` / `ctx.agent` 的 Web profile；会话首次确认还需要 `ctx.userQuestions`（Web profile 默认含 `@deepseek-ai/dsh-user-questions`，缺失时退回开关语义）
 - 本包只在 Web Client 端提供界面；不提供终端或桌面端入口
 
 ## 安装
@@ -48,7 +48,7 @@ dsh --profile web-prompt
 pnpm install
 pnpm build          # tsc 产出 lib/types/*.d.ts；tsdown 产出 lib/index.js + lib/client.js
 pnpm pack
-dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-0.1.0.tgz
+dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-<version>.tgz
 ```
 
 由于包声明了 `dsh.client` 入口，插件一旦进入组合树，web shell 会自动加载 `lib/client.js`；node 端（`lib/index.js`）负责声明可实时编辑的 `Config` 并在 `agent/pre-step` 注入提示词。
@@ -87,7 +87,7 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-0.1.0.tgz
 
 - 开关与提示词的改动都在下一步生效：中途打开开关，当前会话的下一次请求就会带上提示词；中途改文本，下一次请求追加新文本，历史里更早的值保持不变。
 - 模态框入口是斜杠命令，不是工作区「更多」弹出菜单（见上文）。
-- 本包要求 DeepSeek Harness `0.1.7-rc.2` 或兼容的 `0.1.7` 预发布版本（插件配置即 Cordis `Config`，浏览器侧通过 `ctx.configForms` 读写）。它是独立的第三方插件，不受 Harness `packages/*` 的测试/覆盖率门禁约束；集成效果必须在运行中的 Harness 中验证。
+- 本包要求 DeepSeek Harness `0.2.1-alpha.2` 或兼容的 `0.2` 预发布版本（插件配置即 Cordis `Config`，浏览器侧通过 `ctx.configForms` 读写）。它是独立的第三方插件，不受 Harness `packages/*` 的测试/覆盖率门禁约束；集成效果必须在运行中的 Harness 中验证。
 - 提示词只在开关打开时占用该工作区的上下文预算；写得越长，留给对话的空间越少。
 - 开关按工作区记忆：在一个会话里打开，该工作区的其他会话（含之后新建的）也会带上提示词，直到再次关闭。
 - 每个会话只问**首次**：选过「不带」的会话不会再问、也不会再注入（想在会话中途改主意，把开关关掉再打开即可——新会话自然重新问）。选过「带上」的会话若后来改了提示词文本、或上下文被压缩掉，会**直接**用最新文本重新注入，不再询问。

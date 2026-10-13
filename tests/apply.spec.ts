@@ -115,6 +115,15 @@ function decision(messages: UserMessage[], kind: 'enter' | 'reject' = 'enter'): 
   return { kind, messages: [...messages] }
 }
 
+/**
+ * The decision an inner listener settled, including the `startsRequestSeries`
+ * mark the goal-round driver sets when a goal round must open its own
+ * model-message series.
+ */
+function markedDecision(messages: UserMessage[]): { kind: string; messages: UserMessage[]; startsRequestSeries: true } {
+  return { ...decision(messages), startsRequestSeries: true }
+}
+
 /** Whether one step's decision carries this plugin's context message. */
 function injectedMessages(result: { messages: UserMessage[] }): UserMessage[] {
   return result.messages.filter(message => message.source.kind === 'workspace-prompt')
@@ -149,6 +158,23 @@ describe('apply', () => {
     expect(injected?.source).toEqual({ kind: 'workspace-prompt', form: 'instructions' })
     expect(injected?.content[0]).toMatchObject({ text: expect.stringContaining('回答问题要幽默风趣') })
     expect(result.messages.indexOf(injected!)).toBe(1)
+  })
+
+  it('keeps the settled decision marks while folding the prompt in', async () => {
+    const { preStep, prompts, enabled } = loadPlugin()
+    prompts['/ws'] = 'goal 会话也要带上'
+    enabled['/ws'] = true
+    const user = human('hi')
+    const result = (await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], turn: 1, step: 1, signal: signal() },
+      async () => markedDecision([user]),
+    )) as { kind: string; messages: UserMessage[]; startsRequestSeries?: true }
+
+    // The prompt enters, and the inner listener's own marks survive: the
+    // goal-round driver's series boundary steers request assembly, so dropping
+    // it here would silently rebuild the round's requests.
+    expect(injectedMessages(result)).toHaveLength(1)
+    expect(result.startsRequestSeries).toBe(true)
   })
 
   it('injects nothing while the configured prompt is not armed', async () => {
