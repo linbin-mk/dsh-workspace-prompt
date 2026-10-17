@@ -18,7 +18,7 @@ export interface WorkspacePromptsView {
      * `unavailable` when the Host serves no config for this entry.
      */
     status: ConfigFormSnapshot<WorkspacePromptSettings>['status'];
-    /** Whether the Host document accepts writes; memory mode never does. */
+    /** Whether the Host document accepts writes. */
     writable: boolean;
     /** Configured prompt text by absolute workspace directory. */
     prompts: Record<string, string>;

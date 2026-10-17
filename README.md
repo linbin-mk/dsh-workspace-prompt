@@ -29,7 +29,7 @@
 ## 要求
 
 - Node.js `^22.19` 或 `>=24`
-- DeepSeek Harness `0.2.1-alpha.2` 或兼容的 `0.2` 预发布版本，以及提供 `ctx.settings` / `ctx.configForms` / `ctx.agent` 的 Web profile；会话首次确认还需要 `ctx.userQuestions`（Web profile 默认含 `@deepseek-ai/dsh-user-questions`，缺失时退回开关语义）
+- DeepSeek Harness `0.2.1-rc.2` 或兼容的 `0.2.1` 预发布版本，以及提供 `ctx.settings` / `ctx.configForms` / `ctx.agent` 的 Web profile；会话首次确认还需要 `ctx.userQuestions`（Web profile 默认含 `@deepseek-ai/dsh-user-questions`，缺失时退回开关语义）
 - 本包只在 Web Client 端提供界面；不提供终端或桌面端入口
 
 ## 安装
@@ -74,7 +74,7 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-<version>.t
 ### Client 端（`src/client/index.ts`，作为插件的 `dsh.client` 半加载）
 
 - 注册名为 `workspace-prompt` 的 `CommandContribution`。斜杠菜单项仅在当前会话有 `cwd` 时才出现。
-- 注册一个 `shell.overlay` 模态框（`WorkspacePromptModal`），接到一个小的 `HostObservable` 上。选择该命令时通过共享配置表单（`ctx.configForms.get('workspace-prompt')`，entry id 与 loader 行 id 一致）读取当前值并打开模态框；表单不可写（例如非本机页面的 memory 模式）时，保存/清除按钮保持禁用。
+- 注册一个 `shell.overlay` 模态框（`WorkspacePromptModal`），接到一个小的 `HostObservable` 上。选择该命令时通过共享配置表单（`ctx.configForms.get('workspace-prompt')`，entry id 与 loader 行 id 一致）读取当前值并打开模态框；表单不可写（未就绪或 Host 拒绝写入）时，保存/清除按钮保持禁用。
 - **保存** / **清除** 通过同一个共享配置表单回写（`form.mutate`，对 `prompts.<cwd>` 执行 `set` / `unset` 路径操作；清除会同时 `unset` `enabled.<cwd>`；Host 拒绝时表单返回 `false`，界面按失败提示），因此回显的值与注入的值共用同一数据源。
 - 注册输入框工具行的开关（`conversation.input.left`，`WorkspacePromptToggle`）：它用 `useSessions` 取当前会话的 `cwd`，只在状态里存在该工作区的提示词时渲染；点击写 `enabled.<cwd>`。两态就是同一个 chip 的两种底色与两种标签：关闭 = 透明底 + 次要文字色 + `-关`，开启 = `--dsw-specific-selector` 浅灰底 + 主文字色 + `-开`。写失败、配置只读、以及 **Host 半仍是升级前版本** 时，控件不再真的 `disabled`（真 disabled 会吞掉 tooltip），而是 `aria-disabled` + 变灰，悬停时说明原因。
 - 注册 **设置 → 工作区提示词** 总览页（`settings.section`）。已配置的工作区以卡片形式列出，可就地修改/清除；**添加工作区** 下拉——数据来自 `useWorkspaces` 标准钩子——只列出当前**尚未配置提示词**的已注册工作区，选中后展开一张可编辑的新卡片，保存即持久化。页面同样订阅共享配置表单：写入结果与 Host 侧变更都会立即反映到列表，表单未就绪或不可写时所有写入控件禁用。
@@ -87,7 +87,7 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-<version>.t
 
 - 开关与提示词的改动都在下一步生效：中途打开开关，当前会话的下一次请求就会带上提示词；中途改文本，下一次请求追加新文本，历史里更早的值保持不变。
 - 模态框入口是斜杠命令，不是工作区「更多」弹出菜单（见上文）。
-- 本包要求 DeepSeek Harness `0.2.1-alpha.2` 或兼容的 `0.2` 预发布版本（插件配置即 Cordis `Config`，浏览器侧通过 `ctx.configForms` 读写）。它是独立的第三方插件，不受 Harness `packages/*` 的测试/覆盖率门禁约束；集成效果必须在运行中的 Harness 中验证。
+- 本包要求 DeepSeek Harness `0.2.1-rc.2` 或兼容的 `0.2.1` 预发布版本（插件配置即 Cordis `Config`，浏览器侧通过 `ctx.configForms` 读写）。它是独立的第三方插件，不受 Harness `packages/*` 的测试/覆盖率门禁约束；集成效果必须在运行中的 Harness 中验证。
 - 提示词只在开关打开时占用该工作区的上下文预算；写得越长，留给对话的空间越少。
 - 开关按工作区记忆：在一个会话里打开，该工作区的其他会话（含之后新建的）也会带上提示词，直到再次关闭。
 - 每个会话只问**首次**：选过「不带」的会话不会再问、也不会再注入（想在会话中途改主意，把开关关掉再打开即可——新会话自然重新问）。选过「带上」的会话若后来改了提示词文本、或上下文被压缩掉，会**直接**用最新文本重新注入，不再询问。

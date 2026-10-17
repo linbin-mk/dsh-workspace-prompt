@@ -16,7 +16,6 @@ function snapshot(
     user: undefined,
     revision: 3,
     writable: true,
-    mode: 'host',
     ...overrides,
   }
 }
@@ -83,7 +82,7 @@ describe('promptsView', () => {
   })
 
   it('carries the refusal to write that disables the overview controls', () => {
-    const { form } = formWith(snapshot({ prompts: {} }, { status: 'unavailable', writable: false, mode: 'memory' }))
+    const { form } = formWith(snapshot({ prompts: {} }, { status: 'unavailable', writable: false }))
     expect(promptsView(form.getSnapshot())).toEqual({
       status: 'unavailable', writable: false, prompts: {}, enabled: {}, switchSupported: true,
     })
@@ -110,7 +109,7 @@ describe('setPrompt', () => {
   })
 
   it('reports a refused write instead of throwing', async () => {
-    const { form } = formWith(snapshot({ prompts: {} }, { writable: false, mode: 'memory' }), false)
+    const { form } = formWith(snapshot({ prompts: {} }, { writable: false }), false)
     await expect(setPrompt(form, '/ws', 'guidance')).resolves.toBe(false)
   })
 })
@@ -123,7 +122,7 @@ describe('setEnabled', () => {
   })
 
   it('reports a refused arm write instead of throwing', async () => {
-    const { form } = formWith(snapshot({ prompts: { '/ws': 'guidance' } }, { writable: false, mode: 'memory' }), false)
+    const { form } = formWith(snapshot({ prompts: { '/ws': 'guidance' } }, { writable: false }), false)
     await expect(setEnabled(form, '/ws', true)).resolves.toBe(false)
   })
 })

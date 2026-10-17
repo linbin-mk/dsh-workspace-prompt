@@ -29,7 +29,7 @@ It changes no Harness source and implements four things:
 ## Requirements
 
 - Node.js `^22.19` or `>=24`
-- DeepSeek Harness `0.2.1-alpha.2` or a compatible `0.2` prerelease, with a Web profile that provides `ctx.settings` / `ctx.configForms` / `ctx.agent`; the once-per-session confirmation also needs `ctx.userQuestions` (shipped in the Web profile through `@deepseek-ai/dsh-user-questions`; without it the plugin falls back to the switch)
+- DeepSeek Harness `0.2.1-rc.2` or a compatible `0.2.1` prerelease, with a Web profile that provides `ctx.settings` / `ctx.configForms` / `ctx.agent`; the once-per-session confirmation also needs `ctx.userQuestions` (shipped in the Web profile through `@deepseek-ai/dsh-user-questions`; without it the plugin falls back to the switch)
 - The user interface is offered on the Web Client only; there is no terminal or desktop entry point
 
 ## Install
@@ -74,7 +74,7 @@ You can also manage everything from **Settings → 工作区提示词**: configu
 ### Client half (`src/client/index.ts`, loaded as the plugin's `dsh.client` half)
 
 - Registers a `CommandContribution` named `workspace-prompt`. The slash menu entry is only offered when the current session has a `cwd`.
-- Registers a `shell.overlay` modal (`WorkspacePromptModal`) wired to a small `HostObservable`. Selecting the command reads the current value through the shared configuration form (`ctx.configForms.get('workspace-prompt')`, whose entry id is the loader row id) and opens the modal; when the form refuses writes (memory mode on a non-loopback page), Save and Clear stay disabled.
+- Registers a `shell.overlay` modal (`WorkspacePromptModal`) wired to a small `HostObservable`. Selecting the command reads the current value through the shared configuration form (`ctx.configForms.get('workspace-prompt')`, whose entry id is the loader row id) and opens the modal; when the form refuses writes (not ready, or the Host document rejects the write), Save and Clear stay disabled.
 - **Save** / **Clear** call back through the same shared configuration form (`form.mutate` with `set` / `unset` path ops on `prompts.<cwd>`; clearing also unsets `enabled.<cwd>`; a Host refusal answers `false` and the UI reports the failure), so the echoed value and the injected value share one source.
 - Registers the composer tool row switch (`conversation.input.left`, `WorkspacePromptToggle`): it resolves the current Session's `cwd` through `useSessions` and renders only while that workspace has a configured prompt. A click writes `enabled.<cwd>`. The two states are one chip with two labels and two fills: off is transparent with the secondary label colour and a `-off` suffix, on is the `--dsw-specific-selector` gray with the primary label colour and an `-on` suffix. A refused write, a read-only configuration, or a **Host half older than this browser half** no longer renders a real `disabled` button (that would swallow the tooltip): the chip reports `aria-disabled`, dims, and explains itself on hover.
 - Registers the **Settings → 工作区提示词 / Workspace prompts** overview page (`settings.section`). It lists every configured workspace on a card (in-place edit / clear), and an **Add workspace** picker — fed by the `useWorkspaces` standard hook — offers the registered workspaces that have **no prompt yet**; picking one opens a fresh editable row that persists on **Save**. The page subscribes to the same configuration form, so a write answer or a Host-side change republishes the list, and every write control stays disabled while the form is loading or refuses writes.
@@ -87,7 +87,7 @@ The workspace action popup (`重命名` / `删除工作区`) in `packages/client
 
 - Switch and prompt changes apply from the next step: turning the switch on mid-session adds the prompt to that session's next request, and editing the text appends the new value while the earlier one stays in history.
 - The modal entry point is the slash command, not the workspace "more" popup (see above).
-- This package requires DeepSeek Harness `0.2.1-alpha.2` or a compatible `0.2` prerelease (plugin configuration is Cordis `Config`, and the browser half reads and writes it through `ctx.configForms`). It is an independent third-party plugin and is not covered by the Harness `packages/*` test/coverage gates; integration must be verified in a running Harness.
+- This package requires DeepSeek Harness `0.2.1-rc.2` or a compatible `0.2.1` prerelease (plugin configuration is Cordis `Config`, and the browser half reads and writes it through `ctx.configForms`). It is an independent third-party plugin and is not covered by the Harness `packages/*` test/coverage gates; integration must be verified in a running Harness.
 - A prompt consumes context budget only while the switch is on, so the longer it is, the less room is left for the conversation.
 - The switch is remembered per workspace: turning it on in one session arms the workspace's other sessions (including later ones) until it is turned off again.
 - Each session is asked **once**: a session that answered "skip" is never asked again and never injected (to change your mind mid-session, turn the switch off and on again — a new session asks fresh). A session that answered "include" re-injects the newest text directly, without asking, if the text changes or compaction drops it.
