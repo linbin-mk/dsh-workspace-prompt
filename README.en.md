@@ -1,38 +1,72 @@
 English | [简体中文](https://github.com/linbin-mk/dsh-workspace-prompt/blob/main/README.md)
 
-# dsh-workspace-prompt
+<p align="center">
+  <img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/icon.png" width="112" alt="dsh-workspace-prompt icon: a blue folder holding a white terminal prompt, >_">
+</p>
 
-[![npm version](https://img.shields.io/npm/v/@linbin-mk/dsh-workspace-prompt)](https://www.npmjs.com/package/@linbin-mk/dsh-workspace-prompt)
-[![publish workflow](https://github.com/linbin-mk/dsh-workspace-prompt/actions/workflows/publish.yml/badge.svg)](https://github.com/linbin-mk/dsh-workspace-prompt/actions/workflows/publish.yml)
-[![license](https://img.shields.io/npm/l/@linbin-mk/dsh-workspace-prompt)](LICENSE)
-[![node](https://img.shields.io/node/v/@linbin-mk/dsh-workspace-prompt)](package.json)
-[![platform](https://img.shields.io/badge/platform-Web%20client-lightgrey)](#requirements)
+<h1 align="center">dsh-workspace-prompt</h1>
 
-`dsh-workspace-prompt` is a pure third-party DeepSeek Harness plugin that gives every workspace its own prompt. A saved prompt does **not** take effect on its own: turn on that workspace's **Workspace prompt** switch in the composer tool row, and the sessions started in that workspace are given the prompt. Both the prompt and the switch survive a Harness restart.
+<p align="center">A dedicated prompt for every workspace.<br>
+Write it once, turn the switch on, and every new session in that workspace carries it — after being asked once per session.</p>
 
-It changes no Harness source and implements four things:
+<p align="center">
+  <a href="https://www.npmjs.com/package/@linbin-mk/dsh-workspace-prompt"><img src="https://img.shields.io/npm/v/@linbin-mk/dsh-workspace-prompt" alt="npm version"></a>
+  <a href="https://github.com/linbin-mk/dsh-workspace-prompt/actions/workflows/publish.yml"><img src="https://github.com/linbin-mk/dsh-workspace-prompt/actions/workflows/publish.yml/badge.svg" alt="publish workflow"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/npm/l/@linbin-mk/dsh-workspace-prompt" alt="license"></a>
+  <a href="package.json"><img src="https://img.shields.io/node/v/@linbin-mk/dsh-workspace-prompt" alt="Node"></a>
+  <img src="https://img.shields.io/badge/platform-Web%20client-lightgrey" alt="platform">
+</p>
 
-1. **Configuration entry** — a `/workspace-prompt` slash command opens a modal with a textarea plus **Save** / **Clear** buttons. The textarea echoes the currently stored value on open; **Clear** removes the workspace's prompt together with its switch state.
-2. **The switch** (composer tool row, the official `conversation.input.left` slot) — it appears only for a workspace that already has a prompt. The label carries the state: **Workspace prompt-off** while it is off (no fill, secondary label) and **Workspace prompt-on** once it is on, over a light gray fill (the same gray as the composer's `⊕` control). One click flips it; the state is remembered per workspace and defaults to off.
-3. **One-time confirmation, then injection on demand** — with the switch on, **each session is asked once**: the moment the prompt would actually be injected (it is not in the session context yet) asks "include the workspace prompt in this session?" — **Include** injects it for that session, **Skip** leaves that session without it and never asks again there, and **neither answer touches the switch** (the next session asks again). The question rides the official `ctx.userQuestions` seam (the same channel approvals and plan review use), so it appears in that session and the step waits for the answer. The injection itself still mirrors the official `agent-instructions` (`AGENTS.md`) mechanism: a durable `user/message` is managed in the agent inbox at `agent/pre-step`, with the plugin's own `kind: 'workspace-prompt'` source and the `form: 'instructions'` context form, so the web transcript renders it as a collapsed context-injection row (the same shape as AGENTS.md) rather than as a user bubble.
-4. **Persistence** — the prompt and its switch are live fields of this plugin's own Cordis `Config` (`prompts` and `enabled`, the workspace directory → prompt / armed maps). Its loader row id `workspace-prompt` is the settings namespace, and the Harness user-settings provider writes the profile's user layer to a file in the Harness home, so both survive a restart.
+> A pure third-party DeepSeek Harness plugin: it changes no Harness source, and its UI ships on the Web Client only.
 
-## Features
+## The problem it solves
 
-- **Scoped per workspace** — the prompt and its switch are keyed by the session's absolute working directory (`cwd`), the stable identity of the workspace, so workspaces never bleed into each other.
-- **Off by default, decided by the switch** — with the switch on, new sessions in that workspace carry the prompt automatically; turning it off stops later injection and leaves what history already recorded untouched.
-- **No prompt, no switch** — a workspace without a prompt keeps the composer tool row exactly as it was.
-- **Two ways to manage it** — configure in place with the `/workspace-prompt` slash command, or manage every configured workspace from the **Settings → Workspace prompts** page.
-- **Survives restarts** — stored in this plugin's Config and written to the profile's user layer by the Harness user-settings provider.
-- **Composes with AGENTS.md** — reuses the official `agent-instructions` inbox/decision pattern and `<system-reminder>` wrapping.
+One Harness session list often spans several repositories: the frontend wants pnpm and Chinese commit messages, the backend wants Gradle, the docs repo just wants short answers. Repeating those rules in every conversation is noisy and easy to forget; putting them in a global system prompt leaks them into every project.
 
-## Requirements
+`dsh-workspace-prompt` attaches the prompt to the **workspace** instead:
 
-- Node.js `^22.19` or `>=24`
-- DeepSeek Harness `0.2.1-rc.2` or a compatible `0.2.1` prerelease, with a Web profile that provides `ctx.settings` / `ctx.configForms` / `ctx.agent`; the once-per-session confirmation also needs `ctx.userQuestions` (shipped in the Web profile through `@deepseek-ai/dsh-user-questions`; without it the plugin falls back to the switch)
-- The user interface is offered on the Web Client only; there is no terminal or desktop entry point
+- **Scoped per workspace** — keyed by the session's absolute working directory (`cwd`), so workspaces never bleed into each other.
+- **Off by default** — saving only stores the text; the prompt reaches the model context after you turn on the switch in the composer tool row.
+- **Ask once per session** — the first time a session would actually inject it, a confirmation card appears. A session that answers "skip" is never asked again and never injected, and the switch state stays untouched.
+- **Survives restarts** — the prompt and the switch live in the plugin's `Config`, written to the profile's user layer by the Harness user-settings provider.
+- **Composes with `AGENTS.md`** — it reuses the injection shape of the official `agent-instructions`, so the transcript renders a collapsed context-injection row rather than a user bubble.
 
-## Install
+## Screenshots
+
+### 1. Configure it with a slash command
+
+<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/slash-command.png" width="780" alt="Typing /workspace-prompt in the composer shows the command entry 'configure a prompt for the current workspace'">
+
+Type `/workspace-prompt` in any session and pick **配置工作区提示词**. The command is only offered when the session has a `cwd`.
+
+<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/configure-modal.png" width="360" alt="Workspace prompt modal: workspace directory, prompt textarea, Clear and Save buttons">
+
+The modal echoes the stored value; **Save** writes it, **Clear** removes the prompt together with the switch state.
+
+### 2. Turn on the switch in the composer tool row
+
+Once a prompt is saved, the composer tool row shows **工作区提示词-关** (workspace prompt, off). One click turns it into **工作区提示词-开** over a light gray fill (the same gray as the composer's `⊕` button). A workspace without a prompt shows no switch at all.
+
+### 3. Confirm once per session
+
+<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/confirm-card.png" width="780" alt="Confirmation card on the first send of a session: include the workspace prompt in this session? Include / Skip">
+
+With the switch on, the first time a session actually needs injection it shows this card:
+
+- **Include** — the prompt is folded into this session's model context;
+- **Skip** — this session is never asked again and never injected, and **the switch stays as it is** (the next session asks again).
+
+The card rides the official `ctx.userQuestions` channel (the same one approvals and plan review use), so it appears inside that session and the step waits for your answer.
+
+### 4. Manage everything from Settings
+
+<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/settings-overview.png" width="700" alt="Settings → Workspace prompts: cards for configured workspaces, prompt textareas and an Add workspace button">
+
+**Settings → 工作区提示词** lists every configured workspace with in-place editing and clearing, and **Add workspace** picks from registered workspaces that have no prompt yet.
+
+## Quick start
+
+### Install
 
 Install the published package into a custom Web profile. The artifact contains no path dependency on a Harness checkout, and its `dsh.bundle` patch adds the Host and Client plugin rows automatically:
 
@@ -53,30 +87,47 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-<version>.t
 
 Because the package declares a `dsh.client` entry, the web shell loads `lib/client.js` automatically once the plugin is part of the composed tree; the node half (`lib/index.js`) declares the live-editable `Config` and injects the prompt at `agent/pre-step`.
 
-## Usage
+### Five steps to use it
 
 1. Open any session inside the workspace you want to configure.
-2. Type `/workspace-prompt` and choose **配置工作区提示词**.
-3. Type the prompt and click **保存**. It is stored, not injected yet.
-4. Click **工作区提示词 / Workspace prompt** in the composer tool row (its label flips from `-off` to `-on`).
-5. The first time a session would inject it, a confirmation appears: **Include** folds the prompt into that session, **Skip** leaves that session without it and never asks again there (the switch stays `-on`; a new session asks again). **清除** removes both the prompt and the switch state.
+2. Type `/workspace-prompt`, pick **配置工作区提示词**, write the prompt and click **保存**.
+3. Click **工作区提示词** in the composer tool row; the label flips from `-关` to `-开`.
+4. Send messages as usual; the first time the session needs injection, answer **带上** or **不带** on the confirmation card.
+5. When you no longer need it, turn the switch off, or click **清除** in the modal / settings page.
 
-You can also manage everything from **Settings → 工作区提示词**: configured workspaces are shown on cards, and the **添加工作区** button offers every registered workspace that has no prompt yet.
+## Behaviour details
+
+| Item | Behaviour |
+| --- | --- |
+| Scope | Both the prompt and the switch are keyed by the session's absolute working directory (`cwd`); the session's `cwd` must match the workspace path shown in Settings exactly. |
+| Default state | Off. A workspace without a prompt shows no switch, and the composer tool row stays exactly as it was. |
+| Injection timing | With the switch on, injection happens in the `agent/pre-step` hook; every step first checks whether the payload is already in the session context, so it is never duplicated. |
+| Session confirmation | Each session is asked once, the first time injection is actually needed. A session that answered "include" re-injects the newest text directly — without asking — if the text changes or compaction drops it. |
+| Persistence | Stored in the plugin `Config` fields `prompts` / `enabled`, both live-editable, and written to the profile's user layer by the Harness settings provider. |
+| No question channel | Without a `userQuestions` service, in headless runs, or with a child / managed agent (`DELEGATED_CALLER`), the plugin falls back to the switch's standing intent and injects; a dismissal (`ASK_CANCELLED`) counts as this turn's skip. |
+| Effective from the next step | Changes apply from the next step: turning the switch on mid-session adds the prompt to that session's next request, and editing the text appends the new value while the earlier one stays in history. |
+
+## Requirements
+
+- Node.js `^22.19` or `>=24`;
+- DeepSeek Harness `0.2.1-rc.2` or a compatible `0.2.1` prerelease, with a Web profile that provides `ctx.settings` / `ctx.configForms` / `ctx.agent`; the once-per-session confirmation also needs `ctx.userQuestions` (shipped in the Web profile through `@deepseek-ai/dsh-user-questions`; without it the plugin falls back to the switch);
+- The user interface is offered on the Web Client only; there is no terminal or desktop entry point.
 
 ## How it works
 
 ### Host half (`src/index.ts` + `src/inject.ts`, loaded as a Cordis plugin)
 
-- Declares its Cordis `Config`: two fields — `prompts: Record<absoluteDir, string>` and `enabled: Record<absoluteDir, boolean>` — both marked `.volatile()`, so the settings form can edit them live. Its loader row id `workspace-prompt` is the settings namespace; the Harness user-settings provider writes Host-side changes to the profile's user layer and pushes them to the plugin (feature 4). The plugin ships its own settings page, so `apply` turns the generated config page off with `ctx.settings.configure({ auto: false })`.
-- Listens on `agent/pre-step`. For each step it reads the session's `header.cwd` and only then — **when that workspace's `enabled` is `true`** — looks the prompt up. When that payload is not already in the session context, it first asks through `ctx.get('userQuestions')?.ask(...)` (once per session; the answer stands for the whole session); only an **Include** answer mints a `user/message` wrapped in `<system-reminder>`, manages it in the inbox, and folds it into the step's decision so it reaches the first model request and the durable log (feature 3). The pure switch check, injection, and inbox-reconciliation logic lives in `src/inject.ts` (`promptFor` / `enabledFor`); the question payload, answer reading, and per-session memory live in `src/confirm.ts` (`confirmQuestions` / `readInclude` / `SessionDecisions`); `src/index.ts` wires both onto the Cordis context.
-- **Never blocks on a question nobody can answer**: without a `userQuestions` service, with no answerer (headless runs), or with an owned/delegated agent (`DELEGATED_CALLER`), it falls back to the switch's standing intent and injects; a dismissal (`ASK_CANCELLED`) counts as this turn's skip.
+- Declares its Cordis `Config`: `prompts: Record<absoluteDir, string>` and `enabled: Record<absoluteDir, boolean>`, both marked `.volatile()` so the settings form can edit them live. Its loader row id `workspace-prompt` is the settings namespace; the Harness settings provider writes Host-side changes to the profile's user layer and pushes them to the plugin. The plugin ships its own settings page, so `apply` turns the generated config page off with `ctx.settings.configure({ auto: false })`.
+- Listens on `agent/pre-step`. For each step it reads the session's `header.cwd` and only then — **when that workspace's `enabled` is `true`** — looks the prompt up. When that payload is not already in the session context, it first asks through `ctx.get('userQuestions')?.ask(...)` (once per session; the answer stands for the whole session); only an **Include** answer mints a `user/message` wrapped in `<system-reminder>`, manages it in the agent inbox, and folds it into the step's decision so it reaches the first model request and the durable log.
+- The pure switch check, injection, and inbox-reconciliation logic lives in `src/inject.ts` (`promptFor` / `enabledFor`); the question payload, answer reading, and per-session memory live in `src/confirm.ts` (`confirmQuestions` / `readInclude` / `SessionDecisions`); `src/index.ts` wires both onto the Cordis context.
+- **Never blocks on a question nobody can answer**: without a `userQuestions` service, with no answerer (headless runs), or with an owned / delegated agent (`DELEGATED_CALLER`), it falls back to the switch's standing intent and injects.
 
 ### Client half (`src/client/index.ts`, loaded as the plugin's `dsh.client` half)
 
 - Registers a `CommandContribution` named `workspace-prompt`. The slash menu entry is only offered when the current session has a `cwd`.
 - Registers a `shell.overlay` modal (`WorkspacePromptModal`) wired to a small `HostObservable`. Selecting the command reads the current value through the shared configuration form (`ctx.configForms.get('workspace-prompt')`, whose entry id is the loader row id) and opens the modal; when the form refuses writes (not ready, or the Host document rejects the write), Save and Clear stay disabled.
 - **Save** / **Clear** call back through the same shared configuration form (`form.mutate` with `set` / `unset` path ops on `prompts.<cwd>`; clearing also unsets `enabled.<cwd>`; a Host refusal answers `false` and the UI reports the failure), so the echoed value and the injected value share one source.
-- Registers the composer tool row switch (`conversation.input.left`, `WorkspacePromptToggle`): it resolves the current Session's `cwd` through `useSessions` and renders only while that workspace has a configured prompt. A click writes `enabled.<cwd>`. The two states are one chip with two labels and two fills: off is transparent with the secondary label colour and a `-off` suffix, on is the `--dsw-specific-selector` gray with the primary label colour and an `-on` suffix. A refused write, a read-only configuration, or a **Host half older than this browser half** no longer renders a real `disabled` button (that would swallow the tooltip): the chip reports `aria-disabled`, dims, and explains itself on hover.
+- Registers the composer tool row switch (`conversation.input.left`, `WorkspacePromptToggle`): it resolves the current session's `cwd` through `useSessions` and renders only while that workspace has a configured prompt. A click writes `enabled.<cwd>`. The two states are one chip with two fills and two labels: off is transparent with the secondary label colour and a `-关` suffix, on is the `--dsw-specific-selector` gray with the primary label colour and a `-开` suffix. A refused write, a read-only configuration, or a **Host half older than this browser half** no longer renders a real `disabled` button (that would swallow the tooltip): the chip reports `aria-disabled`, dims, and explains itself on hover.
 - Registers the **Settings → 工作区提示词 / Workspace prompts** overview page (`settings.section`). It lists every configured workspace on a card (in-place edit / clear), and an **Add workspace** picker — fed by the `useWorkspaces` standard hook — offers the registered workspaces that have **no prompt yet**; picking one opens a fresh editable row that persists on **Save**. The page subscribes to the same configuration form, so a write answer or a Host-side change republishes the list, and every write control stays disabled while the form is loading or refuses writes.
 
 ## Why the entry is a slash command, not the workspace "more" popup
@@ -87,7 +138,7 @@ The workspace action popup (`重命名` / `删除工作区`) in `packages/client
 
 - Switch and prompt changes apply from the next step: turning the switch on mid-session adds the prompt to that session's next request, and editing the text appends the new value while the earlier one stays in history.
 - The modal entry point is the slash command, not the workspace "more" popup (see above).
-- This package requires DeepSeek Harness `0.2.1-rc.2` or a compatible `0.2.1` prerelease (plugin configuration is Cordis `Config`, and the browser half reads and writes it through `ctx.configForms`). It is an independent third-party plugin and is not covered by the Harness `packages/*` test/coverage gates; integration must be verified in a running Harness.
+- This package requires DeepSeek Harness `0.2.1-rc.2` or a compatible `0.2.1` prerelease (plugin configuration is Cordis `Config`, and the browser half reads and writes it through `ctx.configForms`). It is an independent third-party plugin and is not covered by the Harness `packages/*` test / coverage gates; integration must be verified in a running Harness.
 - A prompt consumes context budget only while the switch is on, so the longer it is, the less room is left for the conversation.
 - The switch is remembered per workspace: turning it on in one session arms the workspace's other sessions (including later ones) until it is turned off again.
 - Each session is asked **once**: a session that answered "skip" is never asked again and never injected (to change your mind mid-session, turn the switch off and on again — a new session asks fresh). A session that answered "include" re-injects the newest text directly, without asking, if the text changes or compaction drops it.
