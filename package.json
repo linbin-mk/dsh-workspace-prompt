@@ -1,6 +1,6 @@
 {
   "name": "@linbin-mk/dsh-workspace-prompt",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Third-party DeepSeek Harness plugin: per-workspace custom prompt configured from a slash command and injected into the model context at session start.",
   "license": "MIT",
   "author": "linbin-mk (https://github.com/linbin-mk)",
@@ -42,6 +42,8 @@
       "default": "./lib/client.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
+    "./icon": "./assets/icon-256.png",
+    "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -187,6 +189,8 @@
     "lib/client.js",
     "lib/types/**/*.d.ts",
     "cordis.patch.yml",
+    "assets/icon-256.png",
+    "locale/*.json",
     "README.md",
     "README.en.md",
     "LICENSE"

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Workspace Prompt",
+    "description": "Per-workspace prompt saved from a slash command or Settings, armed by a composer switch, and confirmed once per session before it is injected into the model context."
+  }
+}
