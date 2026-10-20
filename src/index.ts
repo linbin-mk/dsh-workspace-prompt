@@ -42,6 +42,7 @@ import type { Session } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-user-questions'
 import { confirmRequest, readInclude, SessionDecisions } from './confirm.ts'
 import { buildMessage, enabledFor, promptFor, sameContent, surfaceSupplies, syncInbox, type InboxLike, type SurfaceLike } from './inject.ts'
+import { languagePreference, resolveLanguage, systemLanguageTags, type UiLanguage } from './language.ts'
 import { ENABLED_FIELD, PROMPTS_FIELD } from './prompt-settings.ts'
 
 export const name = 'workspace-prompt'
@@ -116,6 +117,30 @@ export function apply(ctx: Context, config: Config): void {
   ): void => syncInbox(agent.inbox as InboxLike, claimed, isOurs, desired, surfaceFor(agent))
 
   /**
+   * The language the web UI currently speaks.
+   *
+   * The question carries literal copy, so exactly one language is chosen: the
+   * stored `locale.preference` when the user picked one, else the Host system
+   * locale (the browser's own default derives from it in a local deployment).
+   * A deployment without the settings service still answers through the
+   * system locale, and an unreadable document never blocks the question.
+   * @returns the copy language for the confirmation question.
+   */
+  const uiLanguage = (): UiLanguage => {
+    let preference: string | undefined
+    const settings = ctx.get('settings')
+    if (settings !== undefined) {
+      try {
+        preference = languagePreference(settings.describe())
+      } catch {
+        // A degraded settings document falls through to the system locale.
+        preference = undefined
+      }
+    }
+    return resolveLanguage(preference, systemLanguageTags())
+  }
+
+  /**
    * Ask this session's human, once, whether the armed prompt should enter.
    *
    * Only the explicit skip label and an explicit dismissal skip: the workspace
@@ -124,14 +149,18 @@ export function apply(ctx: Context, config: Config): void {
    * fall back to injecting instead of blocking a session on a question nobody
    * can answer — and are remembered, so the failed dispatch is not repeated on
    * every later turn. An aborted turn decides nothing.
+   * @param agent - the session waiting for the answer.
+   * @param signal - the turn's cancellation signal.
+   * @param prompt - the configured prompt, shown on the include option.
+   * @returns whether the prompt belongs in this session.
    */
-  const confirmOnce = async (agent: Agent, signal: AbortSignal): Promise<boolean> => {
+  const confirmOnce = async (agent: Agent, signal: AbortSignal, prompt: string): Promise<boolean> => {
     const questions = ctx.get('userQuestions')
     if (questions === undefined) return true
     let include = true
     let decided = true
     try {
-      include = readInclude(await questions.ask(confirmRequest(agent, signal)))
+      include = readInclude(await questions.ask(confirmRequest(agent, signal, uiLanguage(), prompt)))
     } catch (error) {
       const code = (error as { code?: unknown }).code
       // A dismissal is an answer: this session goes without the prompt, and
@@ -155,10 +184,10 @@ export function apply(ctx: Context, config: Config): void {
     // A session that answered "skip" never sees the prompt, however the switch
     // moves afterwards.
     const decided = decisions.recall(agent.id)
-    const text = decided !== false && cwd !== undefined && enabledFor(config.enabled.get(), cwd)
+    const prompt = decided !== false && cwd !== undefined && enabledFor(config.enabled.get(), cwd)
       ? promptFor(config.prompts.get(), cwd)
       : undefined
-    let desired = text !== undefined && text.length > 0 ? buildMessage(text) : undefined
+    let desired = prompt !== undefined && prompt.length > 0 ? buildMessage(prompt) : undefined
 
     if (decision.kind === 'reject' || (step === 1 && decision.messages.length === 0)) {
       // No model request proceeds: park the prompt as a pending inbox entry
@@ -172,10 +201,10 @@ export function apply(ctx: Context, config: Config): void {
     // already stands in this step's batch or in the recorded surface needs no
     // decision, so the session is never asked about it.
     const pending = desired
-    if (pending !== undefined
+    if (pending !== undefined && prompt !== undefined && prompt.length > 0
       && !surfaceSupplies(surfaceFor(agent), pending)
       && !decision.messages.some(message => sameContent(message, pending))
-      && !(decided ?? await confirmOnce(agent, signal))) {
+      && !(decided ?? await confirmOnce(agent, signal, prompt))) {
       desired = undefined
     }
 

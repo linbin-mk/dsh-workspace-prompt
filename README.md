@@ -49,12 +49,14 @@
 
 ### ③ 每个会话首次发送时确认一次
 
-<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/confirm-card.png" width="780" alt="会话首次发送时出现的确认卡：本次会话是否带上该工作区的工作区提示词？带上 / 不带">
+<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/confirm-card.png" width="780" alt="会话首次发送时出现的确认卡：本次会话是否带上该工作区的工作区提示词？「带上」下面直接显示配置的提示词，另一项是「不带」">
 
 开关打开后，某个会话第一次真正需要注入时会出现这张卡：
 
-- **带上** —— 提示词并入本会话的模型上下文；
+- **带上** —— 选项后面直接列出该工作区配置的提示词，选了就并入本会话的模型上下文；
 - **不带** —— 本会话不再询问、也不再注入，**开关保持原状**（下个会话会重新问一次）。
+
+卡片文案只显示一种语言，跟随 DSH 的界面语言：设置里选过语言就按它来，没选过则按宿主系统语言（本地 `dsh web` 下与浏览器的默认语言一致）。
 
 确认卡走官方 `ctx.userQuestions` 通道（审批、计划评审用的是同一个通道），所以它会出现在该会话里，并且这一步会等你回答后才继续。
 
@@ -118,8 +120,8 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-<version>.t
 ### Host 端（`src/index.ts` + `src/inject.ts`，作为 Cordis 插件加载）
 
 - 声明 Cordis `Config`：`prompts: Record<absoluteDir, string>` 与 `enabled: Record<absoluteDir, boolean>`，都标记为 `.volatile()`，因此可以在设置表单里实时编辑。loader 行 id `workspace-prompt` 就是它的 settings 命名空间，Host 侧改动由 Harness 的 settings provider 落到 profile 用户层并实时推给插件。插件自带设置页，因此 `apply` 里用 `ctx.settings.configure({ auto: false })` 关掉自动生成的配置页。
-- 监听 `agent/pre-step`。每一步读取会话的 `header.cwd`；**只有该工作区的 `enabled` 为 `true`** 时才去取 `prompts`。命中且该内容还没出现在会话上下文里时，先通过 `ctx.get('userQuestions')?.ask(...)` 问一次（每个会话只问一次，答案在整个会话里复用），选「带上」才生成一条包在 `<system-reminder>` 里的 `user/message`，在 agent inbox 中维护它，并并入该步的决策，使其进入首个模型请求与持久化日志。
-- 纯注入、开关判定与 inbox 对账逻辑在 `src/inject.ts`（`promptFor` / `enabledFor`）；提问载荷与判定在 `src/confirm.ts`（`confirmQuestions` / `readInclude` / `SessionDecisions`）；`src/index.ts` 负责把它们接到 Cordis 上下文上。
+- 监听 `agent/pre-step`。每一步读取会话的 `header.cwd`；**只有该工作区的 `enabled` 为 `true`** 时才去取 `prompts`。命中且该内容还没出现在会话上下文里时，先通过 `ctx.get('userQuestions')?.ask(...)` 问一次（每个会话只问一次，答案在整个会话里复用），选「带上」才生成一条包在 `<system-reminder>` 里的 `user/message`，在 agent inbox 中维护它，并并入该步的决策，使其进入首个模型请求与持久化日志。提问前按界面语言只生成一种文案，并把提示词原文放在「带上」选项的说明里。
+- 纯注入、开关判定与 inbox 对账逻辑在 `src/inject.ts`（`promptFor` / `enabledFor`）；提问载荷与判定在 `src/confirm.ts`（`confirmQuestions` / `readInclude` / `SessionDecisions`）；文案语言的选择在 `src/language.ts`（优先 `locale.preference`，否则宿主系统语言）；`src/index.ts` 负责把它们接到 Cordis 上下文上。
 - **问不到人时不阻塞**：没有 `userQuestions` 服务、没人能应答（headless 运行）、当前 agent 是子代理或被托管（`DELEGATED_CALLER`）时，插件退回开关语义直接注入。
 
 ### Client 端（`src/client/index.ts`，作为插件的 `dsh.client` 半加载）
@@ -142,7 +144,7 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-<version>.t
 - 提示词只在开关打开时占用该工作区的上下文预算；写得越长，留给对话的空间越少。
 - 开关按工作区记忆：在一个会话里打开，该工作区的其他会话（含之后新建的）也会带上提示词，直到再次关闭。
 - 每个会话只问**首次**：选过「不带」的会话不会再问、也不会再注入（想在会话中途改主意，把开关关掉再打开即可——新会话自然重新问）。选过「带上」的会话若后来改了提示词文本、或上下文被压缩掉，会**直接**用最新文本重新注入，不再询问。
-- 提问文案是**中英双语**：宿主侧发起的提问只带字面文本，Harness 的问题协议没有本地化通道；客户端自己的界面文案仍按语言字典渲染。
+- 确认卡文案跟随 DSH 的界面语言，**只显示中文或英文中的一种**：优先读设置里的 `locale.preference`，没选过时按宿主系统语言判断（问题协议没有本地化通道，宿主只能在提问前二选一）；「带上」选项的说明直接展示该工作区配置的提示词。
 
 ## 故障排查
 

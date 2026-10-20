@@ -2,25 +2,62 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  CONFIRM_QUESTION_ID, INCLUDE_LABEL, SKIP_LABEL, SessionDecisions, confirmQuestions, readInclude,
+  CONFIRM_COPY, CONFIRM_QUESTION_ID, SessionDecisions, confirmQuestions, readInclude,
 } from '../src/confirm.ts'
+
+const PROMPT = '本工作区规则：回答前先看 README。'
 
 describe('confirmQuestions', () => {
   it('asks one stable question offering exactly the include and skip answers', () => {
-    const questions = confirmQuestions()
+    const questions = confirmQuestions('zh', PROMPT)
     expect(questions).toHaveLength(1)
     expect(questions[0]?.id).toBe(CONFIRM_QUESTION_ID)
-    expect(questions[0]?.options?.map(option => option.label)).toEqual([INCLUDE_LABEL, SKIP_LABEL])
+    expect(questions[0]?.options?.map(option => option.label))
+      .toEqual([CONFIRM_COPY.zh.include, CONFIRM_COPY.zh.skip])
+  })
+
+  it('shows the configured prompt on the include option instead of generic copy', () => {
+    const include = confirmQuestions('zh', PROMPT)[0]?.options?.[0]
+    expect(include?.description).toBe(PROMPT)
+  })
+
+  it('keeps the prompt verbatim apart from surrounding whitespace', () => {
+    const prompt = 'line one\nline two\n'
+    expect(confirmQuestions('en', prompt)[0]?.options?.[0]?.description).toBe('line one\nline two')
+  })
+
+  it('omits the description when there is no prompt to show', () => {
+    expect(confirmQuestions('zh', '   ')[0]?.options?.[0]).not.toHaveProperty('description')
   })
 
   it('states that skipping covers the rest of the session and leaves the switch alone', () => {
-    const skip = confirmQuestions()[0]?.options?.find(option => option.label === SKIP_LABEL)
+    const skip = confirmQuestions('zh', PROMPT)[0]?.options?.[1]
     expect(skip?.description).toContain('本会话')
     expect(skip?.description).toContain('开关')
   })
 
-  it('asks about the session, not one turn', () => {
-    expect(confirmQuestions()[0]?.question).toContain('本次会话')
+  it('asks about the session, not one turn, in each shipped language', () => {
+    expect(confirmQuestions('zh', PROMPT)[0]?.question).toContain('本次会话')
+    expect(confirmQuestions('en', PROMPT)[0]?.question).toBe(CONFIRM_COPY.en.question)
+  })
+
+  it('never renders both languages at once', () => {
+    for (const language of ['zh', 'en'] as const) {
+      const question = confirmQuestions(language, PROMPT)[0]
+      const rendered = JSON.stringify([question?.header, question?.question, question?.options])
+      const other = language === 'zh' ? CONFIRM_COPY.en : CONFIRM_COPY.zh
+      expect(rendered).not.toContain(other.header)
+      expect(rendered).not.toContain(other.question)
+    }
+  })
+
+  it('picks copy from the requested language alone', () => {
+    const zh = confirmQuestions('zh', PROMPT)[0]
+    const en = confirmQuestions('en', PROMPT)[0]
+    expect(zh?.header).toBe(CONFIRM_COPY.zh.header)
+    expect(en?.header).toBe(CONFIRM_COPY.en.header)
+    expect(zh?.options?.[1]?.description).toBe(CONFIRM_COPY.zh.skipDescription)
+    expect(en?.options?.[1]?.description).toBe(CONFIRM_COPY.en.skipDescription)
   })
 })
 
@@ -30,12 +67,18 @@ describe('readInclude', () => {
   })
 
   it('injects only when the include answer stands alone or beside skip', () => {
-    expect(readInclude(answer([INCLUDE_LABEL]))).toBe(true)
-    expect(readInclude(answer([INCLUDE_LABEL, SKIP_LABEL]))).toBe(true)
+    expect(readInclude(answer([CONFIRM_COPY.zh.include]))).toBe(true)
+    expect(readInclude(answer([CONFIRM_COPY.zh.include, CONFIRM_COPY.zh.skip]))).toBe(true)
   })
 
   it('skips for the explicit skip answer', () => {
-    expect(readInclude(answer([SKIP_LABEL]))).toBe(false)
+    expect(readInclude(answer([CONFIRM_COPY.zh.skip]))).toBe(false)
+  })
+
+  it('reads a skip answered under the English copy too', () => {
+    expect(readInclude(answer([CONFIRM_COPY.en.skip]))).toBe(false)
+    expect(readInclude(answer([CONFIRM_COPY.en.include, CONFIRM_COPY.en.skip]))).toBe(true)
+    expect(readInclude(answer([CONFIRM_COPY.en.include]))).toBe(true)
   })
 
   it('keeps the armed intent for anything the protocol did not spell out', () => {

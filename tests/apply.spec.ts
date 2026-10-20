@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { apply } from '../src/index.ts'
-import { INCLUDE_LABEL, SKIP_LABEL } from '../src/confirm.ts'
+import { CONFIRM_COPY } from '../src/confirm.ts'
 import { buildMessage } from '../src/inject.ts'
+import type { AskUserQuestionItem } from '@deepseek-ai/dsh-user-questions/types'
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
 
 /** Everything one `apply` call published, for both host wiring and Config reads. */
@@ -18,7 +19,7 @@ interface LoadedPlugin {
   /** Whether an effect was registered through the child context. */
   childEffects: number
   /** The recorded `userQuestions.ask` calls this plugin made. */
-  asked: Array<{ id: string; agent: unknown; signal: unknown }>
+  asked: Array<{ id: string; agent: unknown; signal: unknown; questions: AskUserQuestionItem[] }>
 }
 
 /** Scripted answerer standing in for `ctx.userQuestions` (or its absence). */
@@ -27,17 +28,25 @@ interface FakeQuestions {
   answer: 'include' | 'skip' | 'dismiss' | 'no-answerer' | 'delegated'
 }
 
+/** How the fake Host document looks to the language probe. */
+interface FakeSettings {
+  /** Value of `locale.preference`; omitted leaves the browser's choice open. */
+  preference?: string
+  /** Throw from `settings.describe()` to stand in for a degraded document. */
+  broken?: boolean
+}
+
 /**
  * A Cordis `ctx` stand-in that records the pre-step listener, the injected
  * services, and the settings presentation, plus the live prompt and arm maps
  * behind the Config references the loader would pass to `apply`.
  */
-function loadPlugin(questions?: FakeQuestions): LoadedPlugin {
+function loadPlugin(questions?: FakeQuestions, ui: FakeSettings = { preference: 'zh' }): LoadedPlugin {
   const prompts: Record<string, string> = {}
   const enabled: Record<string, boolean> = {}
   const configured: Array<{ auto?: boolean }> = []
   const injected: string[] = []
-  const asked: Array<{ id: string; agent: unknown; signal: unknown }> = []
+  const asked: Array<{ id: string; agent: unknown; signal: unknown; questions: AskUserQuestionItem[] }> = []
   let childEffects = 0
   let preStep: ((payload: unknown, next: () => Promise<unknown>) => Promise<unknown>) | undefined
   const ctx = {
@@ -59,19 +68,31 @@ function loadPlugin(questions?: FakeQuestions): LoadedPlugin {
     },
     fiber: {},
     get: (name: string) => {
+      if (name === 'settings') {
+        return {
+          describe: () => {
+            if (ui.broken === true) throw new Error('settings unavailable')
+            return ui.preference === undefined
+              ? []
+              : [{ ns: 'locale', value: { preference: ui.preference } }]
+          },
+        }
+      }
       if (name !== 'userQuestions' || questions === undefined) return undefined
       return {
-        ask: async (request: { questions: readonly { id: string }[]; agent: unknown; signal: unknown }) => {
+        ask: async (request: { questions: AskUserQuestionItem[]; agent: unknown; signal: unknown }) => {
           for (const question of request.questions) {
-            asked.push({ id: question.id, agent: request.agent, signal: request.signal })
+            asked.push({ id: question.id, agent: request.agent, signal: request.signal, questions: request.questions })
           }
           if (questions.answer === 'no-answerer') throw Object.assign(new Error('no answerer'), { code: 'NO_PROVIDER' })
           if (questions.answer === 'delegated') throw Object.assign(new Error('delegated'), { code: 'DELEGATED_CALLER' })
           if (questions.answer === 'dismiss') throw Object.assign(new Error('dismissed'), { code: 'ASK_CANCELLED' })
+          // Pick by position, the way the card submits whichever copy is shown.
+          const labels = request.questions[0]?.options?.map(option => option.label) ?? []
           return {
             answers: [{
               id: 'workspace-prompt-include',
-              selected: [questions.answer === 'skip' ? SKIP_LABEL : INCLUDE_LABEL],
+              selected: [questions.answer === 'skip' ? labels[1] ?? '' : labels[0] ?? ''],
             }],
           }
         },
@@ -365,6 +386,58 @@ describe('apply', () => {
     )) as { messages: UserMessage[] }
 
     expect(loaded.asked.map(call => call.id)).toEqual(['workspace-prompt-include'])
+    expect(injectedMessages(result)).toHaveLength(1)
+  })
+
+  it('asks in the web UI language and shows the configured prompt on the include option', async () => {
+    const loaded = loadPlugin({ answer: 'include' }, { preference: 'zh-CN' })
+    const { preStep, prompts, enabled } = loaded
+    prompts['/ws'] = '回答前先看 README。'
+    enabled['/ws'] = true
+    const user = human('hi')
+    await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], turn: 1, step: 1, signal: signal() },
+      async () => decision([user]),
+    )
+
+    const question = loaded.asked[0]?.questions[0]
+    expect(question?.header).toBe(CONFIRM_COPY.zh.header)
+    expect(question?.question).toBe(CONFIRM_COPY.zh.question)
+    expect(question?.options?.map(option => option.label))
+      .toEqual([CONFIRM_COPY.zh.include, CONFIRM_COPY.zh.skip])
+    expect(question?.options?.[0]?.description).toBe('回答前先看 README。')
+  })
+
+  it('asks in English when the stored preference is English', async () => {
+    const loaded = loadPlugin({ answer: 'include' }, { preference: 'en-US' })
+    const { preStep, prompts, enabled } = loaded
+    prompts['/ws'] = 'Read the README first.'
+    enabled['/ws'] = true
+    const user = human('hi')
+    await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], turn: 1, step: 1, signal: signal() },
+      async () => decision([user]),
+    )
+
+    const question = loaded.asked[0]?.questions[0]
+    expect(question?.header).toBe(CONFIRM_COPY.en.header)
+    expect(question?.options?.map(option => option.label))
+      .toEqual([CONFIRM_COPY.en.include, CONFIRM_COPY.en.skip])
+    expect(question?.options?.[0]?.description).toBe('Read the README first.')
+  })
+
+  it('still asks when the settings document cannot be read', async () => {
+    const loaded = loadPlugin({ answer: 'include' }, { broken: true })
+    const { preStep, prompts, enabled } = loaded
+    prompts['/ws'] = '降级也要问'
+    enabled['/ws'] = true
+    const user = human('hi')
+    const result = (await preStep(
+      { agent: fakeAgent('/ws'), messages: [user], turn: 1, step: 1, signal: signal() },
+      async () => decision([user]),
+    )) as { messages: UserMessage[] }
+
+    expect(loaded.asked).toHaveLength(1)
     expect(injectedMessages(result)).toHaveLength(1)
   })
 

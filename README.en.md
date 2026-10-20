@@ -49,12 +49,14 @@ Once a prompt is saved, the composer tool row shows **工作区提示词-关** (
 
 ### 3. Confirm once per session
 
-<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/confirm-card.png" width="780" alt="Confirmation card on the first send of a session: include the workspace prompt in this session? Include / Skip">
+<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/confirm-card.en.png" width="780" alt="Confirmation card on the first send of a session: include this workspace’s prompt in this session? The Include option shows the configured prompt; the other option is Skip">
 
 With the switch on, the first time a session actually needs injection it shows this card:
 
-- **Include** — the prompt is folded into this session's model context;
+- **Include** — shows the workspace's own prompt right after the label, so you can see exactly what enters this session's model context;
 - **Skip** — this session is never asked again and never injected, and **the switch stays as it is** (the next session asks again).
+
+The card renders one language only, following the DSH UI language: an explicit language chosen in Settings wins, and a browser that never chose one is followed through the Host system language (the browser's default in a local `dsh web` deployment).
 
 The card rides the official `ctx.userQuestions` channel (the same one approvals and plan review use), so it appears inside that session and the step waits for your answer.
 
@@ -118,8 +120,8 @@ Because the package declares a `dsh.client` entry, the web shell loads `lib/clie
 ### Host half (`src/index.ts` + `src/inject.ts`, loaded as a Cordis plugin)
 
 - Declares its Cordis `Config`: `prompts: Record<absoluteDir, string>` and `enabled: Record<absoluteDir, boolean>`, both marked `.volatile()` so the settings form can edit them live. Its loader row id `workspace-prompt` is the settings namespace; the Harness settings provider writes Host-side changes to the profile's user layer and pushes them to the plugin. The plugin ships its own settings page, so `apply` turns the generated config page off with `ctx.settings.configure({ auto: false })`.
-- Listens on `agent/pre-step`. For each step it reads the session's `header.cwd` and only then — **when that workspace's `enabled` is `true`** — looks the prompt up. When that payload is not already in the session context, it first asks through `ctx.get('userQuestions')?.ask(...)` (once per session; the answer stands for the whole session); only an **Include** answer mints a `user/message` wrapped in `<system-reminder>`, manages it in the agent inbox, and folds it into the step's decision so it reaches the first model request and the durable log.
-- The pure switch check, injection, and inbox-reconciliation logic lives in `src/inject.ts` (`promptFor` / `enabledFor`); the question payload, answer reading, and per-session memory live in `src/confirm.ts` (`confirmQuestions` / `readInclude` / `SessionDecisions`); `src/index.ts` wires both onto the Cordis context.
+- Listens on `agent/pre-step`. For each step it reads the session's `header.cwd` and only then — **when that workspace's `enabled` is `true`** — looks the prompt up. When that payload is not already in the session context, it first asks through `ctx.get('userQuestions')?.ask(...)` (once per session; the answer stands for the whole session); only an **Include** answer mints a `user/message` wrapped in `<system-reminder>`, manages it in the agent inbox, and folds it into the step's decision so it reaches the first model request and the durable log. Before asking, it renders the copy in one UI language and puts the raw prompt in the Include option's description.
+- The pure switch check, injection, and inbox-reconciliation logic lives in `src/inject.ts` (`promptFor` / `enabledFor`); the question payload, answer reading, and per-session memory live in `src/confirm.ts` (`confirmQuestions` / `readInclude` / `SessionDecisions`); the copy-language choice lives in `src/language.ts` (`locale.preference` first, else the Host system language); `src/index.ts` wires them onto the Cordis context.
 - **Never blocks on a question nobody can answer**: without a `userQuestions` service, with no answerer (headless runs), or with an owned / delegated agent (`DELEGATED_CALLER`), it falls back to the switch's standing intent and injects.
 
 ### Client half (`src/client/index.ts`, loaded as the plugin's `dsh.client` half)
@@ -142,7 +144,7 @@ The workspace action popup (`重命名` / `删除工作区`) in `packages/client
 - A prompt consumes context budget only while the switch is on, so the longer it is, the less room is left for the conversation.
 - The switch is remembered per workspace: turning it on in one session arms the workspace's other sessions (including later ones) until it is turned off again.
 - Each session is asked **once**: a session that answered "skip" is never asked again and never injected (to change your mind mid-session, turn the switch off and on again — a new session asks fresh). A session that answered "include" re-injects the newest text directly, without asking, if the text changes or compaction drops it.
-- The question copy is bilingual: a host-originated question carries literal text, and the question protocol has no localization channel; the plugin's own client copy still follows the active locale.
+- The confirmation card follows the DSH UI language and renders **one language only**: an explicit `locale.preference` from Settings wins, and a browser that never chose one is followed through the Host system language (the question protocol carries literal text, so the Host must pick one language before it asks). The Include option's description is the configured prompt itself.
 
 ## Troubleshooting
 

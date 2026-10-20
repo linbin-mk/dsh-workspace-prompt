@@ -11,6 +11,11 @@
  * Nothing here writes configuration: answering "skip" leaves the workspace's
  * switch exactly as it was.
  *
+ * Copy ships in one language per ask (see `language.ts`): the question carries
+ * literal text, so the Host picks the web UI's language instead of stacking
+ * both. The include option shows the prompt itself, so the human sees exactly
+ * what would enter the context.
+ *
  * Pure by construction: the question text, the answer reading, and the
  * per-session memory carry no Cordis runtime, so `index.ts` only wires them.
  */
@@ -20,6 +25,7 @@ import type { AskUserQuestionAnswer, AskUserQuestionItem } from '@deepseek-ai/ds
 // The full request type (questions plus the answering scope) lives on the
 // service entry, next to the `ctx.userQuestions` Context merge.
 import type { AskUserQuestionRequest } from '@deepseek-ai/dsh-user-questions'
+import type { UiLanguage } from './language.ts'
 
 /**
  * Question id echoed in the answer. Stable: the answer is matched by id, so a
@@ -28,34 +34,72 @@ import type { AskUserQuestionRequest } from '@deepseek-ai/dsh-user-questions'
  */
 export const CONFIRM_QUESTION_ID = 'workspace-prompt-include'
 
-/** Label of the answer that injects the prompt. */
-export const INCLUDE_LABEL = '带上 Include'
+/** One language's question copy, including both option labels. */
+export interface ConfirmCopy {
+  /** Short heading above the question. */
+  header: string
+  /** The question the human answers. */
+  question: string
+  /** Label of the answer that injects the prompt. */
+  include: string
+  /** Label of the answer that leaves this session without the prompt. */
+  skip: string
+  /** One-line explanation under the skip label. */
+  skipDescription: string
+}
 
-/** Label of the answer that leaves this turn without the prompt. */
-export const SKIP_LABEL = '不带 Skip'
+/**
+ * Question copy, one entry per shipped language.
+ *
+ * The labels are answer values: `readInclude` compares selected labels against
+ * every entry, so a session answered under either language reads back
+ * correctly. The include option carries no fixed description; its description
+ * is the configured prompt (see {@link confirmQuestions}).
+ */
+export const CONFIRM_COPY: Readonly<Record<UiLanguage, ConfirmCopy>> = {
+  zh: {
+    header: '工作区提示词',
+    question: '本次会话是否带上该工作区的工作区提示词？',
+    include: '带上',
+    skip: '不带',
+    skipDescription: '本会话不再询问、也不注入，开关状态不变。',
+  },
+  en: {
+    header: 'Workspace prompt',
+    question: 'Include this workspace\u2019s prompt in this session?',
+    include: 'Include',
+    skip: 'Skip',
+    skipDescription: 'Skip it for the rest of this session; the switch stays on.',
+  },
+}
+
+/** Every include label an answer may carry, across shipped languages. */
+const INCLUDE_LABELS = new Set(Object.values(CONFIRM_COPY).map(copy => copy.include))
+
+/** Every skip label an answer may carry, across shipped languages. */
+const SKIP_LABELS = new Set(Object.values(CONFIRM_COPY).map(copy => copy.skip))
 
 /**
  * The question payload.
- *
- * Copy is bilingual because the question protocol carries literal text and the
- * answering UI renders the session's language: a host-originated question has
- * no dictionary channel of its own (`.agents`-style client localization covers
- * client copy only).
+ * @param language - the copy language chosen from the web UI preference.
+ * @param prompt - the configured prompt shown on the include option.
  * @returns the single confirmation question.
  */
-export function confirmQuestions(): AskUserQuestionItem[] {
+export function confirmQuestions(language: UiLanguage, prompt: string): AskUserQuestionItem[] {
+  const copy = CONFIRM_COPY[language]
+  const shown = prompt.trim()
   return [{
     id: CONFIRM_QUESTION_ID,
-    header: '工作区提示词 Workspace prompt',
-    question: '本次会话是否带上该工作区的工作区提示词？Include the workspace prompt in this session?',
+    header: copy.header,
+    question: copy.question,
     options: [
       {
-        label: INCLUDE_LABEL,
-        description: '并入本会话的模型上下文。Fold it into this session\u2019s model context.',
+        label: copy.include,
+        ...(shown === '' ? {} : { description: shown }),
       },
       {
-        label: SKIP_LABEL,
-        description: '本会话不再询问、也不注入，开关状态不变。Skip it for the rest of this session; the switch stays on.',
+        label: copy.skip,
+        description: copy.skipDescription,
       },
     ],
   }]
@@ -65,10 +109,17 @@ export function confirmQuestions(): AskUserQuestionItem[] {
  * Build the full request for one turn.
  * @param agent - the session's live agent, so the question reaches its client.
  * @param signal - the turn's cancellation signal; cancelling the turn settles the question.
+ * @param language - the copy language chosen from the web UI preference.
+ * @param prompt - the configured prompt shown on the include option.
  * @returns the request to pass to `ctx.userQuestions.ask`.
  */
-export function confirmRequest(agent: Agent, signal: AbortSignal): AskUserQuestionRequest {
-  return { questions: confirmQuestions(), agent, signal }
+export function confirmRequest(
+  agent: Agent,
+  signal: AbortSignal,
+  language: UiLanguage,
+  prompt: string,
+): AskUserQuestionRequest {
+  return { questions: confirmQuestions(language, prompt), agent, signal }
 }
 
 /**
@@ -76,15 +127,17 @@ export function confirmRequest(agent: Agent, signal: AbortSignal): AskUserQuesti
  *
  * Only an explicit skip skips: the switch is already on, so a custom answer, a
  * missing item, or an unrecognised selection keeps the standing intent and
- * injects. Dismissal is decided by the caller from the rejection code, not
- * here.
+ * injects. Labels of every shipped language are recognised, so the answer is
+ * read correctly whatever copy language the question used. Dismissal is
+ * decided by the caller from the rejection code, not here.
  * @param answer - the answered question set.
  * @returns true to inject this turn, false only for the explicit skip label.
  */
 export function readInclude(answer: AskUserQuestionAnswer): boolean {
   const item = answer.answers.find(entry => entry.id === CONFIRM_QUESTION_ID)
   if (item === undefined) return true
-  return !(item.selected.includes(SKIP_LABEL) && !item.selected.includes(INCLUDE_LABEL))
+  return !(item.selected.some(label => SKIP_LABELS.has(label))
+    && !item.selected.some(label => INCLUDE_LABELS.has(label)))
 }
 
 /**
