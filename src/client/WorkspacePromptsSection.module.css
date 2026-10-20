@@ -1,0 +1,410 @@
+/* Workspace-prompt settings page.
+ *
+ * Design language follows the dsh-session-sync settings page: a 16/24 title
+ * over a 14/22 intro, one settings card on the shipped settings-card material,
+ * 0.5px hairlines between blocks, and workspace rows built from the same
+ * folder-row anatomy as the sidebar tree. Every color resolves through a
+ * `--dsw-alias-*` token, so light and dark themes share one stylesheet.
+ *
+ * Class names are scoped by the client bundle's CSS-module plugin (prefix
+ * `wsp-`), so nothing here can collide with the shell or another plugin.
+ */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 720px;
+  padding-bottom: 16px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
+.intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.banner {
+  margin: 0;
+  padding: 10px 12px;
+  border: 0.5px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);
+  border-radius: var(--dsw-radius-lg);
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 9%, transparent);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  border: 0.5px solid var(--dsw-alias-settings-card-stroke);
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-alias-settings-card-fill);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 24px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cardMeta {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.listHint {
+  margin: 12px 8px 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px;
+  border-radius: var(--dsw-radius-md);
+  transition: background-color 600ms ease;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+}
+
+.item + .item {
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.row:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* A workspace without a prompt has no action of its own; the add menu owns
+ * that verb, so its row must not read as clickable. */
+.row[data-unconfigured='true']:hover {
+  background: transparent;
+}
+
+.item[data-flash='true'] .row {
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 14%, transparent);
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rowMainStatic {
+  cursor: default;
+}
+
+.rowMain:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid
+    var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+  border-radius: var(--dsw-radius-sm);
+}
+
+.folder {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 20px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.row[data-enabled='false'] .folder,
+.row[data-unconfigured='true'] .folder {
+  color: var(--dsw-alias-label-caption);
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rowTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.row[data-unconfigured='true'] .rowTitle {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.rowPreview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.rowPreviewMono {
+  font-family: var(--dsh-font-family-code-default, monospace);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.rowState {
+  flex: none;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.row[data-enabled='false'] .rowState {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.rowStateMuted {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.rowError {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.chevron {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--dsw-alias-label-caption);
+  transition: transform 150ms var(--ds-ease-in-out), color 120ms linear;
+}
+
+.row:hover .chevron {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.row[data-open='true'] .chevron {
+  transform: rotate(90deg);
+}
+
+.row[data-pending='true'] .chevron {
+  visibility: hidden;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 8px 4px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.dividerLabel {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.dividerCount {
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--dsw-alias-label-caption);
+}
+
+.editor {
+  margin: 2px 8px 12px 32px;
+  padding: 12px;
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-module-platform);
+}
+
+.editorHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.editorLabel {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.editorCount {
+  flex: none;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 88px;
+  padding: 8px 10px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 22px;
+  outline: none;
+  resize: vertical;
+}
+
+.textarea:focus {
+  border-color: var(--dsw-alias-state-business-primary);
+}
+
+.textarea::placeholder {
+  color: var(--dsw-alias-label-caption);
+}
+
+.textarea:disabled {
+  color: var(--dsw-alias-label-tertiary);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.editorFoot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.hint {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.editorActions {
+  flex: none;
+  display: flex;
+  gap: 8px;
+}
+
+.error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.danger {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent);
+}
+
+.tagNew {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);
+  font-size: 11px;
+  line-height: 17px;
+  font-weight: 500;
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.pickerItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  max-width: 320px;
+}
+
+.pickerTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.pickerPath {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--dsh-font-family-code-default, monospace);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+}

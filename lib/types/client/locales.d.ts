@@ -21,6 +21,7 @@ export declare const zh: {
     'settings.nav': string;
     'settings.title': string;
     'settings.intro': string;
+    'settings.card': string;
     'settings.add': string;
     'settings.add.header': string;
     'settings.add.empty': string;
@@ -29,15 +30,27 @@ export declare const zh: {
     'settings.count': string;
     'settings.countOf': string;
     'settings.new': string;
-    'settings.empty.title': string;
-    'settings.empty.hint': string;
-    'settings.rowHint': string;
+    'settings.pendingPreview': string;
+    'settings.on': string;
+    'settings.off': string;
+    'settings.unconfigured': string;
+    'settings.divider': string;
+    'settings.emptyInline': string;
+    'settings.editorLabel': string;
+    'settings.placeholder': string;
+    'settings.charCount': string;
+    'settings.editorHint': string;
+    'settings.toggleAria': string;
+    'settings.toggleError': string;
+    'settings.readonly': string;
     'settings.skew': string;
     'settings.save': string;
     'settings.clear': string;
     'settings.cancel': string;
     'settings.error': string;
 };
+/** Dictionary key union for this plugin. */
+export type WorkspacePromptKey = keyof typeof zh;
 /** English dictionary, checked complete against the zh key set. */
 export declare const en: {
     'command.description': string;
@@ -61,6 +74,7 @@ export declare const en: {
     'settings.nav': string;
     'settings.title': string;
     'settings.intro': string;
+    'settings.card': string;
     'settings.add': string;
     'settings.add.header': string;
     'settings.add.empty': string;
@@ -69,14 +83,22 @@ export declare const en: {
     'settings.count': string;
     'settings.countOf': string;
     'settings.new': string;
-    'settings.empty.title': string;
-    'settings.empty.hint': string;
-    'settings.rowHint': string;
+    'settings.pendingPreview': string;
+    'settings.on': string;
+    'settings.off': string;
+    'settings.unconfigured': string;
+    'settings.divider': string;
+    'settings.emptyInline': string;
+    'settings.editorLabel': string;
+    'settings.placeholder': string;
+    'settings.charCount': string;
+    'settings.editorHint': string;
+    'settings.toggleAria': string;
+    'settings.toggleError': string;
+    'settings.readonly': string;
     'settings.skew': string;
     'settings.save': string;
     'settings.clear': string;
     'settings.cancel': string;
     'settings.error': string;
 };
-/** Dictionary key union for this plugin. */
-export type WorkspacePromptKey = keyof typeof zh;

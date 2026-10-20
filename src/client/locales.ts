@@ -20,7 +20,8 @@ export const zh = {
   'error.rejected': '配置不可写，或写入已被 Host 拒绝',
   'settings.nav': '工作区提示词',
   'settings.title': '工作区提示词',
-  'settings.intro': '管理每个工作区的专属提示词：已配置的工作区可以修改或清除，也可以从未配置的工作区中添加。提示词默认不注入——在会话输入框打开该工作区的「工作区提示词」开关后，**每个会话只问首次**：选「带上」就注入该会话，选「不带」该会话不再询问、也不再注入，开关状态始终不变。',
+  'settings.intro': '为每个工作区保存一段专属提示词。开关打开后，会话第一次真正用到它之前只确认一次：选「带上」就注入，选「不带」该会话不再询问，开关不变。',
+  'settings.card': '工作区',
   'settings.add': '添加工作区',
   'settings.add.header': '未配置提示词的工作区',
   'settings.add.empty': '所有工作区都已配置提示词',
@@ -29,15 +30,28 @@ export const zh = {
   'settings.count': '已配置 {count} 个工作区',
   'settings.countOf': '已配置 {configured} 个 / 共 {total} 个工作区',
   'settings.new': '新配置',
-  'settings.empty.title': '还没有为任何工作区配置提示词',
-  'settings.empty.hint': '点击右上角「添加工作区」，从尚未配置的工作区中选择一个；也可以在会话中输入 /workspace-prompt 为当前工作区配置。',
-  'settings.rowHint': '开关打开时，每个会话首次要注入时会确认一次；选过「不带」的会话不再询问。',
+  'settings.pendingPreview': '尚未保存',
+  'settings.on': '已开启',
+  'settings.off': '已关闭',
+  'settings.unconfigured': '未配置',
+  'settings.divider': '未配置的工作区',
+  'settings.emptyInline': '还没有配置任何提示词：点击右上角「添加工作区」开始。',
+  'settings.editorLabel': '提示词',
+  'settings.placeholder': '为该工作区编写专属提示词…',
+  'settings.charCount': '{count} 字',
+  'settings.editorHint': '开关打开时，每个会话首次注入前会确认一次。',
+  'settings.toggleAria': '工作区提示词开关：{name}',
+  'settings.toggleError': '切换失败：Host 拒绝了这次写入',
+  'settings.readonly': '配置当前不可写：Host 还没有给出可用的配置表单。请稍后重试；若刚升级插件，重启 dsh web 即可。',
   'settings.skew': 'Host 侧仍是升级前的版本，开关暂不可用；重启 dsh web 后即可切换。',
   'settings.save': '保存',
   'settings.clear': '清除',
   'settings.cancel': '取消',
   'settings.error': '操作失败：{message}',
 } satisfies Record<string, string>
+
+/** Dictionary key union for this plugin. */
+export type WorkspacePromptKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
@@ -61,7 +75,8 @@ export const en = {
   'error.rejected': 'the configuration is read-only, or the Host refused the write',
   'settings.nav': 'Workspace prompts',
   'settings.title': 'Workspace prompts',
-  'settings.intro': 'Manage each workspace\u2019s dedicated prompt: edit or clear configured workspaces, or add one that has no prompt yet. Prompts stay inert until you arm them — with the Workspace prompt switch on, each session is asked **once**: include the prompt there, or skip it for that session without changing the switch.',
+  'settings.intro': 'Save a dedicated prompt for each workspace. With the switch on, each session is asked once before the prompt is used: include it, or skip it for that session without changing the switch.',
+  'settings.card': 'Workspace',
   'settings.add': 'Add workspace',
   'settings.add.header': 'Workspaces without a prompt',
   'settings.add.empty': 'Every workspace already has a prompt',
@@ -70,15 +85,22 @@ export const en = {
   'settings.count': '{count} workspace prompt(s) configured',
   'settings.countOf': '{configured} of {total} workspaces configured',
   'settings.new': 'New',
-  'settings.empty.title': 'No workspace prompt configured yet',
-  'settings.empty.hint': 'Click \u201cAdd workspace\u201d above and pick one without a prompt, or type /workspace-prompt in a session to configure its workspace.',
-  'settings.rowHint': 'While the switch is on, each session is asked once before the prompt goes in; a session that skipped is never asked again.',
+  'settings.pendingPreview': 'Not saved yet',
+  'settings.on': 'On',
+  'settings.off': 'Off',
+  'settings.unconfigured': 'Not configured',
+  'settings.divider': 'Workspaces without a prompt',
+  'settings.emptyInline': 'No workspace prompt configured yet: start with “Add workspace” in the top-right corner.',
+  'settings.editorLabel': 'Prompt',
+  'settings.placeholder': 'Write a prompt for this workspace…',
+  'settings.charCount': '{count} chars',
+  'settings.editorHint': 'While the switch is on, each session is asked once before the prompt goes in.',
+  'settings.toggleAria': 'Workspace prompt switch: {name}',
+  'settings.toggleError': 'Switch failed: the Host refused the write',
+  'settings.readonly': 'The configuration is read-only: the Host has not provided a usable form yet. Retry shortly, or restart dsh web after upgrading the plugin.',
   'settings.skew': 'The Host half is still the pre-upgrade version, so the switch is unavailable; restart dsh web to enable it.',
   'settings.save': 'Save',
   'settings.clear': 'Clear',
   'settings.cancel': 'Cancel',
   'settings.error': 'Operation failed: {message}',
-} satisfies Record<string, string>
-
-/** Dictionary key union for this plugin. */
-export type WorkspacePromptKey = keyof typeof zh
+} satisfies Record<WorkspacePromptKey, string>

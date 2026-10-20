@@ -26,7 +26,8 @@ describe('published identity', () => {
   })
 
   it('registers the client bundle under the package name, so the boot graph finds it', () => {
-    const id = /__ModuleLoader__\.load\(\{ id: "([^"]+)"/.exec(build)?.[1]
+    // The banner and the injected stylesheet both derive from this one id.
+    const id = /const PLUGIN_ID = '([^']+)'/.exec(build)?.[1]
     expect(id).toBe(manifest.name)
   })
 

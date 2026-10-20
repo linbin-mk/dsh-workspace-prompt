@@ -62,9 +62,9 @@
 
 ### ④ 设置页集中管理
 
-<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/settings-overview.png" width="700" alt="设置 → 工作区提示词：已配置工作区的卡片、提示词文本框与添加工作区按钮">
+<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/settings-overview.png" width="700" alt="设置 → 工作区提示词：已配置工作区按名称排在前面（提示词预览与开关），「未配置的工作区」分割行下面是未配置的只读行">
 
-**设置 → 工作区提示词** 汇总所有已配置的工作区：可就地修改、清除，也能通过 **添加工作区** 从未配置的已注册工作区里挑一个补上。
+**设置 → 工作区提示词** 用一张工作区列表集中管理：已配置的按名称排在前面（提示词预览、开关、展开箭头），中间用「未配置的工作区」分割行隔开，未配置的只读展示；点行就地展开编辑器，保存 / 清除都在编辑器内完成，右上角仍是原来的 **添加工作区** 菜单。
 
 ## 快速开始
 
@@ -130,7 +130,7 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-<version>.t
 - 注册一个 `shell.overlay` 模态框（`WorkspacePromptModal`），接到一个小的 `HostObservable` 上。选择该命令时通过共享配置表单（`ctx.configForms.get('workspace-prompt')`，entry id 与 loader 行 id 一致）读取当前值并打开模态框；表单不可写（未就绪或 Host 拒绝写入）时，保存/清除按钮保持禁用。
 - **保存 / 清除** 通过同一个共享配置表单回写（`form.mutate`，对 `prompts.<cwd>` 执行 `set` / `unset` 路径操作；清除会同时 `unset` `enabled.<cwd>`；Host 拒绝时表单返回 `false`，界面按失败提示），因此回显的值与注入的值共用同一数据源。
 - 注册输入框工具行的开关（`conversation.input.left`，`WorkspacePromptToggle`）：用 `useSessions` 取当前会话的 `cwd`，只在状态里存在该工作区的提示词时渲染；点击写 `enabled.<cwd>`。两态是同一个 chip 的两种底色与两种标签：关闭 = 透明底 + 次要文字色 + `-关`，开启 = `--dsw-specific-selector` 浅灰底 + 主文字色 + `-开`。写失败、配置只读、以及 **Host 半仍是升级前版本** 时，控件用 `aria-disabled` + 变灰而不是真 `disabled`（真 disabled 会吞掉 tooltip），悬停时说明原因。
-- 注册 **设置 → 工作区提示词** 总览页（`settings.section`）。已配置的工作区以卡片列出，可就地修改/清除；**添加工作区** 下拉的数据来自 `useWorkspaces` 标准钩子，只列出尚未配置提示词的已注册工作区。页面同样订阅共享配置表单：写入结果与 Host 侧变更都会立即反映到列表，表单未就绪或不可写时所有写入控件禁用。
+- 注册 **设置 → 工作区提示词** 总览页（`settings.section`）。页面是一张工作区列表：已配置的按名称排在前面、显示提示词预览与开关，未配置的以只读行排在「未配置的工作区」分割行之后；点行就地展开编辑器，保存 / 清除在编辑器内完成。**添加工作区** 下拉的数据来自 `useWorkspaces` 标准钩子，只列出尚未配置提示词的已注册工作区。页面同样订阅共享配置表单：写入结果与 Host 侧变更都会立即反映到列表，表单未就绪或不可写时所有写入控件禁用。页面样式是 `WorkspacePromptsSection.module.css`，构建时内联进 client bundle 并自动加 `wsp-` 前缀。
 
 ## 为什么入口是斜杠命令，而不是工作区「更多」弹出菜单
 
@@ -159,11 +159,11 @@ dsh plugin --profile web-prompt add ./linbin-mk-dsh-workspace-prompt-<version>.t
 
 ```sh
 pnpm install
-pnpm build          # 构建 lib/（提交进仓库，随包发布）
+pnpm build          # 构建 lib/（提交进仓库，随包发布）；client 样式模块内联进 bundle
 pnpm test           # vitest run
 ```
 
-`tests/manifest-identity.spec.ts` 断言 `package.json` 的 `name`、`cordis.patch.yml` 的 `insert[].name` 与 client bundle banner 里的 `__ModuleLoader__.load({ id })` 三者一致——改名时它会变红，而不是安静地装上一个加载不起来的包。
+`tests/manifest-identity.spec.ts` 断言 `package.json` 的 `name`、`cordis.patch.yml` 的 `insert[].name` 与 `tsdown.config.ts` 里的 `PLUGIN_ID`（banner 与样式注入共用它）三者一致——改名时它会变红，而不是安静地装上一个加载不起来的包。
 
 ## 许可证
 

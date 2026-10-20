@@ -62,9 +62,9 @@ The card rides the official `ctx.userQuestions` channel (the same one approvals 
 
 ### 4. Manage everything from Settings
 
-<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/settings-overview.png" width="700" alt="Settings → Workspace prompts: cards for configured workspaces, prompt textareas and an Add workspace button">
+<img src="https://raw.githubusercontent.com/linbin-mk/dsh-workspace-prompt/main/assets/screenshots/settings-overview.png" width="700" alt="Settings → Workspace prompts: configured workspaces first with prompt previews and switches, then a Workspaces without a prompt divider and read-only rows">
 
-**Settings → 工作区提示词** lists every configured workspace with in-place editing and clearing, and **Add workspace** picks from registered workspaces that have no prompt yet.
+**Settings → 工作区提示词** keeps everything in one workspace list: configured workspaces come first, sorted by title, with a prompt preview and arm switch; a **Workspaces without a prompt** divider separates the read-only remainder. Clicking a row opens its editor in place, with Save and Clear inside it; the **Add workspace** menu in the card header keeps the original add flow.
 
 ## Quick start
 
@@ -130,7 +130,7 @@ Because the package declares a `dsh.client` entry, the web shell loads `lib/clie
 - Registers a `shell.overlay` modal (`WorkspacePromptModal`) wired to a small `HostObservable`. Selecting the command reads the current value through the shared configuration form (`ctx.configForms.get('workspace-prompt')`, whose entry id is the loader row id) and opens the modal; when the form refuses writes (not ready, or the Host document rejects the write), Save and Clear stay disabled.
 - **Save** / **Clear** call back through the same shared configuration form (`form.mutate` with `set` / `unset` path ops on `prompts.<cwd>`; clearing also unsets `enabled.<cwd>`; a Host refusal answers `false` and the UI reports the failure), so the echoed value and the injected value share one source.
 - Registers the composer tool row switch (`conversation.input.left`, `WorkspacePromptToggle`): it resolves the current session's `cwd` through `useSessions` and renders only while that workspace has a configured prompt. A click writes `enabled.<cwd>`. The two states are one chip with two fills and two labels: off is transparent with the secondary label colour and a `-关` suffix, on is the `--dsw-specific-selector` gray with the primary label colour and a `-开` suffix. A refused write, a read-only configuration, or a **Host half older than this browser half** no longer renders a real `disabled` button (that would swallow the tooltip): the chip reports `aria-disabled`, dims, and explains itself on hover.
-- Registers the **Settings → 工作区提示词 / Workspace prompts** overview page (`settings.section`). It lists every configured workspace on a card (in-place edit / clear), and an **Add workspace** picker — fed by the `useWorkspaces` standard hook — offers the registered workspaces that have **no prompt yet**; picking one opens a fresh editable row that persists on **Save**. The page subscribes to the same configuration form, so a write answer or a Host-side change republishes the list, and every write control stays disabled while the form is loading or refuses writes.
+- Registers the **Settings → 工作区提示词 / Workspace prompts** overview page (`settings.section`) as one workspace list: configured workspaces first, sorted by title, with a prompt preview and arm switch; registered workspaces without a prompt follow as read-only rows below a **Workspaces without a prompt** divider. Clicking a row opens its editor in place, with Save and Clear inside it. The **Add workspace** picker — fed by the `useWorkspaces` standard hook — offers the registered workspaces that have **no prompt yet**; picking one opens a fresh editor that persists on **Save**. The page subscribes to the same configuration form, so a write answer or a Host-side change republishes the list, and every write control stays disabled while the form is loading or refuses writes. Its stylesheet is `WorkspacePromptsSection.module.css`, compiled into the client bundle with a `wsp-` class prefix.
 
 ## Why the entry is a slash command, not the workspace "more" popup
 
@@ -159,11 +159,11 @@ The workspace action popup (`重命名` / `删除工作区`) in `packages/client
 
 ```sh
 pnpm install
-pnpm build          # builds lib/, which is committed and shipped
+pnpm build          # builds lib/ (committed and shipped); client styles are inlined into the bundle
 pnpm test           # vitest run
 ```
 
-`tests/manifest-identity.spec.ts` asserts that `package.json`'s `name`, the `insert[].name` in `cordis.patch.yml`, and the `__ModuleLoader__.load({ id })` in the client bundle banner all agree — a rename turns it red instead of quietly installing a package that never loads.
+`tests/manifest-identity.spec.ts` asserts that `package.json`'s `name`, the `insert[].name` in `cordis.patch.yml`, and `PLUGIN_ID` in `tsdown.config.ts` (shared by the bundle banner and the stylesheet injection) all agree — a rename turns it red instead of quietly installing a package that never loads.
 
 ## License
 

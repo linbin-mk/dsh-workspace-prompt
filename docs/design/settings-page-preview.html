@@ -1,0 +1,1318 @@
+<!doctype html>
+<!--
+  工作区提示词设置页 · 改版静态稿（可交互，单文件，无外部依赖）
+
+  用途：在动插件代码之前对齐视觉与交互。直接用浏览器打开本文件即可；
+  右上角可切换 主题（浅/深）与 页面状态（默认 / 编辑中 / 空状态 / 只读）。
+
+  保真度：设置面板骨架、卡片材料、行语法、开关/按钮/标签/输入、以及工作区
+  列表的文件夹行，全部沿用 harness ui-theme token 与 ui-primitives 的尺寸；
+  与 dsh-session-sync 的设置页（docs/design/settings-page-preview.html）同源。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工作区提示词设置页 · 改版静态稿</title>
+<style>
+
+
+/* ==== elevation / blur 变量（ui-theme gradient-shadow-text.css） ==== */
+body {
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l4);
+  --dsw-mask-blur: none;
+  --dsw-menu-backdrop-filter: blur(40px) saturate(150%);
+}
+body, body * {
+  --dsw-elevation-stroke: 0 0 0 0.5px var(--dsw-elevation-stroke-color);
+  --dsw-elevation-panel: var(--dsw-elevation-stroke), 0 3px 8px 0 rgba(0, 0, 0, 0.03), 0 0 16px 0 rgba(0, 0, 0, 0.02);
+  --dsw-elevation-prominent: var(--dsw-elevation-stroke), 0 3px 8px 0 rgba(0, 0, 0, 0.04), 0 0 20px 0 rgba(0, 0, 0, 0.05);
+  --dsw-elevation-soft: var(--dsw-elevation-stroke), 0 4px 16px 0 rgba(0, 0, 0, 0.03), 0 0 24px 0 rgba(0, 0, 0, 0.03);
+}
+/* ==== 以下 token 逐字来自 harness ui-theme: base.css + design-platform.css ==== */
+/* Base variables referenced by the token sheets and component CSS but defined
+ * upstream (deepsuite theme/global.css) — supplied here so the composite
+ * --dsw-font-* variables resolve and motion rides the upstream curve. Code
+ * font stack deliberately omits a bare `monospace` tail (Windows CJK falls
+ * back to SimSun otherwise). */
+:root {
+  --dsh-font-family-text-default: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --dsw-font-family: var(--dsh-font-family-text-default);
+  --dsw-font-family-brand: 'Montserrat', var(--dsh-font-family-text-default);
+  --dsh-font-family-code-default: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas,
+    'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei';
+  --ds-font-family-code: var(--dsh-font-family-code-default);
+  --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ds-transition-duration: 0.2s;
+  --ds-transition-duration-fast: 0.1s;
+  --ds-transition-duration-slow: 0.3s;
+  --dsw-radius-xs: 4px;
+  --dsw-radius-sm: 8px;
+  --dsw-radius-md: 12px;
+  --dsw-radius-lg: 16px;
+  --dsw-radius-xl: 20px;
+  --dsw-radius-panel: 28px;
+}
+
+/* User font lists (--dsh-font-family-text/-code, written on body by the theme
+ * boot script and ThemePresenter) lead the built-in stacks. An unset list
+ * falls back to the built-in stack itself; the repeated families are inert. */
+body {
+  --dsw-font-family: var(--dsh-font-family-text, var(--dsh-font-family-text-default)), var(--dsh-font-family-text-default);
+  --ds-font-family-code: var(--dsh-font-family-code, var(--dsh-font-family-code-default)), var(--dsh-font-family-code-default);
+  --dsw-alias-settings-card-fill: var(--dsw-alias-bg-layer-2);
+  --dsw-alias-settings-card-stroke: var(--dsw-alias-border-l4);
+}
+
+[data-dsh-automatic-focus]:focus,
+[data-dsh-automatic-focus]:focus:focus-visible {
+  outline: none;
+}
+
+/* Figma font-weight 510 (an SF Pro variable-font weight) always renders as
+   font-weight: 500 in this UI — non-variable webfonts snap intermediate
+   weights unpredictably across platforms. */
+body {
+  --dsw-static-amber-100: rgb(254, 245, 231);
+  --dsw-static-amber-400: rgb(247, 173, 49);
+  --dsw-static-amber-500: rgb(245, 158, 11);
+  --dsw-static-amber-600: rgb(221, 134, 41);
+  --dsw-static-amber-900: rgb(39, 36, 31);
+  --dsw-static-blue-100: rgb(219, 234, 254);
+  --dsw-static-blue-300: rgb(147, 197, 253);
+  --dsw-static-blue-400: rgb(96, 165, 250);
+  --dsw-static-blue-450: rgb(77, 147, 248);
+  --dsw-static-blue-500: rgb(59, 130, 246);
+  --dsw-static-blue-50: rgb(239, 246, 255);
+  --dsw-static-blue-50p: rgb(234, 243, 255);
+  --dsw-static-blue-600: rgb(37, 99, 235);
+  --dsw-static-blue-75: rgb(229, 240, 255);
+  --dsw-static-blue-800: rgb(30, 64, 175);
+  --dsw-static-blue-900: rgb(14, 48, 116);
+  --dsw-static-blue-950: rgb(23, 37, 84);
+  --dsw-static-deepseek-100: rgb(228, 237, 253);
+  --dsw-static-deepseek-200: rgb(211, 226, 255);
+  --dsw-static-deepseek-300: rgb(183, 200, 254);
+  /* Brightened from the platform rgb(103, 158, 254) at the designer's request: legibility on the dark toast surface. */
+  --dsw-static-deepseek-400: rgb(122, 170, 255);
+  --dsw-static-deepseek-450: rgb(86, 134, 254);
+  --dsw-static-deepseek-500: rgb(65, 118, 230);
+  --dsw-static-deepseek-50: rgb(237, 243, 254);
+  --dsw-static-deepseek-600: rgb(72, 104, 178);
+  --dsw-static-deepseek-700-delete: rgb(47, 76, 143);
+  --dsw-static-deepseek-800: rgb(52, 65, 91);
+  --dsw-static-deepseek-900: rgb(40, 49, 66);
+  --dsw-static-green-100: rgb(230, 250, 237);
+  --dsw-static-green-400: rgb(78, 209, 126);
+  --dsw-static-green-500: rgb(34, 197, 94);
+  --dsw-static-green-500-a08: rgb(34 197 94 / 8%);
+  --dsw-static-green-500-a12: rgb(34 197 94 / 12%);
+  --dsw-static-green-900: rgb(35, 60, 44);
+  --dsw-static-neutral-00: rgb(255, 255, 255);
+  --dsw-static-neutral-1000: rgb(0, 0, 0);
+  --dsw-static-neutral-100: rgb(245, 245, 245);
+  --dsw-static-neutral-150: rgb(237, 237, 237);
+  --dsw-static-neutral-200: rgb(229, 229, 229);
+  --dsw-static-neutral-250: rgb(220, 220, 220);
+  --dsw-static-neutral-300: rgb(212, 212, 212);
+  --dsw-static-neutral-400: rgb(162, 164, 166);
+  --dsw-static-neutral-500: rgb(127, 130, 135);
+  --dsw-static-neutral-50: rgb(250, 250, 250);
+  --dsw-static-neutral-550: rgb(101, 103, 107);
+  --dsw-static-neutral-600: rgb(84, 85, 87);
+  --dsw-static-neutral-700: rgb(60, 60, 61);
+  --dsw-static-neutral-800: rgb(41, 41, 41);
+  --dsw-static-neutral-850: rgb(33, 33, 35);
+  --dsw-static-neutral-900: rgb(15, 15, 15);
+  --dsw-static-neutral-bluish-00: rgb(255, 255, 255);
+  --dsw-static-neutral-bluish-1000: rgb(15, 17, 21);
+  --dsw-static-neutral-bluish-100: rgb(235, 238, 242);
+  --dsw-static-neutral-bluish-150: rgb(233, 236, 242);
+  --dsw-static-neutral-bluish-200: rgb(225, 229, 238);
+  --dsw-static-neutral-bluish-300: rgb(207, 211, 214);
+  --dsw-static-neutral-bluish-400: rgb(173, 178, 184);
+  --dsw-static-neutral-bluish-500: rgb(151, 157, 166);
+  --dsw-static-neutral-bluish-50: rgb(249, 250, 251);
+  --dsw-static-neutral-bluish-600: rgb(129, 133, 140);
+  --dsw-static-neutral-bluish-60: rgb(245, 246, 247);
+  --dsw-static-neutral-bluish-700: rgb(97, 102, 107);
+  --dsw-static-neutral-bluish-750: rgb(67, 69, 74);
+  --dsw-static-neutral-bluish-75: rgb(241, 243, 245);
+  --dsw-static-neutral-bluish-800: rgb(53, 54, 56);
+  --dsw-static-neutral-bluish-850: rgb(44, 44, 46);
+  --dsw-static-neutral-bluish-875: rgb(35, 35, 36);
+  --dsw-static-neutral-bluish-900: rgb(27, 27, 28);
+  --dsw-static-neutral-bluish-950: rgb(21, 21, 23);
+  --dsw-static-red-100: rgb(254, 226, 226);
+  --dsw-static-red-400: rgb(242, 90, 90);
+  --dsw-static-red-400-a12: rgb(242 90 90 / 12%);
+  --dsw-static-red-500: rgb(239, 68, 68);
+  --dsw-static-red-50: rgb(254, 242, 242);
+  --dsw-static-red-600: rgb(236, 19, 19);
+  --dsw-static-red-600-a08: rgb(236 19 19 / 8%);
+  --dsw-static-red-900: rgb(87, 12, 12);
+}
+
+body[data-ds-dark-theme] {
+  --dsw-static-amber-100: rgb(254, 245, 231);
+  --dsw-static-amber-400: rgb(247, 173, 49);
+  --dsw-static-amber-500: rgb(245, 158, 11);
+  --dsw-static-amber-600: rgb(221, 134, 41);
+  --dsw-static-amber-900: rgb(39, 36, 31);
+  --dsw-static-blue-100: rgb(219, 234, 254);
+  --dsw-static-blue-300: rgb(147, 197, 253);
+  --dsw-static-blue-400: rgb(96, 165, 250);
+  --dsw-static-blue-450: rgb(77, 147, 248);
+  --dsw-static-blue-500: rgb(59, 130, 246);
+  --dsw-static-blue-50: rgb(239, 246, 255);
+  --dsw-static-blue-50p: rgb(234, 243, 255);
+  --dsw-static-blue-600: rgb(37, 99, 235);
+  --dsw-static-blue-75: rgb(229, 240, 255);
+  --dsw-static-blue-800: rgb(30, 64, 175);
+  --dsw-static-blue-900: rgb(14, 48, 116);
+  --dsw-static-blue-950: rgb(23, 37, 84);
+  --dsw-static-deepseek-100: rgb(228, 237, 253);
+  --dsw-static-deepseek-200: rgb(211, 226, 255);
+  --dsw-static-deepseek-300: rgb(183, 200, 254);
+  /* Brightened from the platform rgb(103, 158, 254) at the designer's request: legibility on the dark toast surface. */
+  --dsw-static-deepseek-400: rgb(122, 170, 255);
+  --dsw-static-deepseek-450: rgb(86, 134, 254);
+  --dsw-static-deepseek-500: rgb(65, 118, 230);
+  --dsw-static-deepseek-50: rgb(237, 243, 254);
+  --dsw-static-deepseek-600: rgb(72, 104, 178);
+  --dsw-static-deepseek-700-delete: rgb(47, 76, 143);
+  --dsw-static-deepseek-800: rgb(52, 65, 91);
+  --dsw-static-deepseek-900: rgb(40, 49, 66);
+  --dsw-static-green-100: rgb(230, 250, 237);
+  --dsw-static-green-400: rgb(78, 209, 126);
+  --dsw-static-green-500: rgb(34, 197, 94);
+  --dsw-static-green-500-a08: rgb(34 197 94 / 8%);
+  --dsw-static-green-500-a12: rgb(34 197 94 / 12%);
+  --dsw-static-green-900: rgb(35, 60, 44);
+  --dsw-static-neutral-00: rgb(255, 255, 255);
+  --dsw-static-neutral-1000: rgb(0, 0, 0);
+  --dsw-static-neutral-100: rgb(245, 245, 245);
+  --dsw-static-neutral-150: rgb(237, 237, 237);
+  --dsw-static-neutral-200: rgb(229, 229, 229);
+  --dsw-static-neutral-250: rgb(220, 220, 220);
+  --dsw-static-neutral-300: rgb(212, 212, 212);
+  --dsw-static-neutral-400: rgb(162, 164, 166);
+  --dsw-static-neutral-500: rgb(127, 130, 135);
+  --dsw-static-neutral-50: rgb(250, 250, 250);
+  --dsw-static-neutral-550: rgb(101, 103, 107);
+  --dsw-static-neutral-600: rgb(84, 85, 87);
+  --dsw-static-neutral-700: rgb(60, 60, 61);
+  --dsw-static-neutral-800: rgb(41, 41, 41);
+  --dsw-static-neutral-850: rgb(33, 33, 35);
+  --dsw-static-neutral-900: rgb(15, 15, 15);
+  --dsw-static-neutral-bluish-00: rgb(255, 255, 255);
+  --dsw-static-neutral-bluish-1000: rgb(15, 17, 21);
+  --dsw-static-neutral-bluish-100: rgb(235, 238, 242);
+  --dsw-static-neutral-bluish-150: rgb(233, 236, 242);
+  --dsw-static-neutral-bluish-200: rgb(225, 229, 238);
+  --dsw-static-neutral-bluish-300: rgb(207, 211, 214);
+  --dsw-static-neutral-bluish-400: rgb(173, 178, 184);
+  --dsw-static-neutral-bluish-500: rgb(151, 157, 166);
+  --dsw-static-neutral-bluish-50: rgb(249, 250, 251);
+  --dsw-static-neutral-bluish-600: rgb(129, 133, 140);
+  --dsw-static-neutral-bluish-60: rgb(249, 250, 251);
+  --dsw-static-neutral-bluish-700: rgb(97, 102, 107);
+  --dsw-static-neutral-bluish-750: rgb(67, 69, 74);
+  --dsw-static-neutral-bluish-75: rgb(241, 243, 245);
+  --dsw-static-neutral-bluish-800: rgb(53, 54, 56);
+  --dsw-static-neutral-bluish-850: rgb(44, 44, 46);
+  --dsw-static-neutral-bluish-875: rgb(35, 35, 36);
+  --dsw-static-neutral-bluish-900: rgb(27, 27, 28);
+  --dsw-static-neutral-bluish-950: rgb(21, 21, 23);
+  --dsw-static-red-100: rgb(254, 226, 226);
+  --dsw-static-red-400: rgb(242, 90, 90);
+  --dsw-static-red-400-a12: rgb(242 90 90 / 12%);
+  --dsw-static-red-500: rgb(239, 68, 68);
+  --dsw-static-red-50: rgb(254, 242, 242);
+  --dsw-static-red-600: rgb(236, 19, 19);
+  --dsw-static-red-600-a08: rgb(236 19 19 / 8%);
+  --dsw-static-red-900: rgb(87, 12, 12);
+}
+
+body {
+  --dsw-alias-bg-base: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-document-preview: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-bg-document-selection: color-mix(in srgb, var(--dsw-static-blue-500) 40%, transparent);
+  --dsw-alias-label-document-preview: var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-bg-layer-1: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.24);
+  --dsw-alias-bg-mask-2: rgba(0, 0, 0, 0.12);
+  --dsw-alias-bg-mask-3: rgba(0, 0, 0, 0.48);
+  --dsw-alias-bg-mask-photo: rgba(0, 0, 0, 0.88);
+  --dsw-alias-bg-mask-drop: rgba(255, 255, 255, 0.7);
+  --dsw-alias-bg-module-platform: var(--dsw-static-neutral-bluish-60);
+  --dsw-alias-bg-multi-select: var(--dsw-static-neutral-bluish-60);
+  --dsw-alias-bg-overlay: var(--dsw-static-neutral-bluish-150);
+  --dsw-alias-bg-skeleton: rgba(0, 0, 0, 0.04);
+  --dsw-alias-border-inverted2: rgba(0, 0, 0, 0);
+  --dsw-alias-border-inverted: rgba(0, 0, 0, 0);
+  --dsw-alias-border-l1: rgba(0, 0, 0, 0.04);
+  --dsw-alias-border-l2-darkmode-thin: rgba(0, 0, 0, 0.1);
+  --dsw-alias-border-l2: rgba(0, 0, 0, 0.1);
+  --dsw-alias-border-l3: rgba(0, 0, 0, 0.12);
+  --dsw-alias-border-l4: rgba(0, 0, 0, 0.16);
+  --dsw-alias-brand-primary-invert: var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-brand-primary-new-colorprimary-new-color: rgb(65, 118, 230);
+  --dsw-alias-brand-primary: var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-brand-text: var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-button-contrast-fill: var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-button-elevated-fill: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-button-floating-fill: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-button-floating-hover: var(--dsw-static-neutral-bluish-75);
+  --dsw-alias-button-ghost-active-border: var(--dsw-static-neutral-bluish-500);
+  --dsw-alias-button-ghost-active-fill: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-button-ghost-active-hover: var(--dsw-static-neutral-bluish-150);
+  --dsw-alias-button-info-fill: var(--dsw-static-deepseek-500);
+  --dsw-alias-button-info-hover: var(--dsw-static-deepseek-400);
+  --dsw-alias-button-primary-dimmed: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
+  --dsw-alias-button-primary-hover: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-button-tool-bar-fill-invisible: rgba(31, 31, 31, 0.36);
+  --dsw-alias-button-tool-bar-fill: rgba(84, 85, 87, 0.5);
+  --dsw-alias-button-tool-bar-hover: rgba(84, 85, 87, 0.6);
+  --dsw-alias-interactive-bg-active: rgba(38, 49, 72, 0.1);
+  --dsw-alias-interactive-bg-hover-accent: rgba(38, 49, 72, 0.14);
+  --dsw-alias-interactive-bg-hover-danger: rgba(236, 19, 19, 0.05);
+  --dsw-alias-interactive-bg-hover-solid: var(--dsw-static-neutral-bluish-75);
+  --dsw-alias-interactive-bg-hover: rgba(38, 49, 72, 0.06);
+  --dsw-alias-label-caption: var(--dsw-static-neutral-bluish-400);
+  --dsw-alias-label-deep-diving: color-mix(in srgb, var(--dsw-static-deepseek-500) 70%, var(--dsw-static-blue-950));
+  --dsw-alias-label-deep-diving-shimmer: color-mix(in srgb, var(--dsw-static-deepseek-500) 30%, var(--dsw-static-blue-950));
+  --dsw-alias-label-dimmed: var(--dsw-static-neutral-bluish-200);
+  --dsw-alias-label-primary-bluish: var(--dsw-static-blue-900);
+  --dsw-alias-label-primary-dimmed: var(--dsw-static-neutral-bluish-950);
+  --dsw-alias-label-primary-foreground: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-label-primary-inverted: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-label-primary: var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-label-secondary: var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-label-shimmer: color-mix(in srgb, var(--dsw-static-neutral-1000) 30%, transparent);
+  --dsw-alias-label-tertiary: var(--dsw-static-neutral-bluish-600);
+  --dsw-alias-menu-icon: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-link: var(--dsw-static-deepseek-500);
+  --dsw-alias-markdown-citation: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-markdown-code-block-banner: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-markdown-code-block: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-markdown-code-segment-selected: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-markdown-code-segment-unselected: var(--dsw-static-neutral-bluish-75);
+  --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-50);
+  --dsw-alias-markdown-placeholder: var(--dsw-static-neutral-bluish-60);
+  --dsw-alias-markdown-tag: var(--dsw-static-neutral-bluish-75);
+  --dsw-alias-scrollbar-bg-l1: var(--dsw-static-neutral-200);
+  --dsw-alias-scrollbar-bg-l2: var(--dsw-static-neutral-200);
+  --dsw-alias-scrollbar-hover-l1: var(--dsw-static-neutral-300);
+  --dsw-alias-scrollbar-hover-l2: var(--dsw-static-neutral-300);
+  --dsw-alias-state-business-primary: var(--dsw-static-deepseek-500);
+  --dsw-alias-state-business-tertiary: var(--dsw-static-deepseek-100);
+  --dsw-alias-code-diff-added: var(--dsw-static-green-500-a08);
+  --dsw-alias-code-diff-deleted: var(--dsw-static-red-600-a08);
+  --dsw-alias-file-diff-added-bg: rgb(230, 244, 231);
+  --dsw-alias-file-diff-added-gutter: rgb(237, 247, 237);
+  --dsw-alias-file-diff-added-marker: rgb(1, 162, 65);
+  --dsw-alias-file-diff-deleted-bg: rgb(252, 230, 226);
+  --dsw-alias-file-diff-deleted-gutter: rgb(253, 236, 233);
+  --dsw-alias-file-diff-deleted-marker: rgb(186, 39, 35);
+  --dsw-alias-state-error-primary: var(--dsw-static-red-600);
+  --dsw-alias-state-error-secondary: var(--dsw-static-red-400);
+  --dsw-alias-state-idle-primary: var(--dsw-static-neutral-300);
+  --dsw-alias-state-success-primary: var(--dsw-static-green-500);
+  --dsw-alias-state-success-secondary: var(--dsw-static-green-400);
+  --dsw-alias-state-success-tertiary: var(--dsw-static-green-100);
+  --dsw-alias-state-warn-label: var(--dsw-static-amber-600);
+  --dsw-alias-state-warn-primary: var(--dsw-static-amber-500);
+  --dsw-alias-state-warn-secondary: var(--dsw-static-amber-400);
+  --dsw-alias-state-warn-tertiary: var(--dsw-static-amber-100);
+  --dsw-alias-switch-thumb: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-toast-bg: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-toast-label: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-tooltip-bg: var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-tooltip-key-bg: color-mix(in srgb, var(--dsw-alias-tooltip-bg), white 18%);
+  --dsw-alias-turn-trigger-bg: var(--dsw-alias-markdown-code-block);
+  --dsw-alias-turn-trigger-bg-hover: var(--dsw-alias-interactive-bg-hover);
+  --dsw-specific-bubble-highlight: var(--dsw-static-deepseek-200);
+  --dsw-specific-bubble: var(--dsw-static-deepseek-50);
+  --dsw-specific-input-major: var(--dsw-static-neutral-bluish-00);
+  --dsw-specific-login-input: var(--dsw-static-neutral-bluish-50);
+  --dsw-menu-surface-fill: rgba(248, 249, 250, 0.58);
+  --dsw-alias-menu-group-header-fill: rgba(248, 249, 250, 0.94);
+  --dsw-specific-menu: var(--dsw-menu-surface-fill);
+  --dsw-specific-selector: var(--dsw-static-neutral-bluish-60);
+  --dsw-specific-sidebar-fill: var(--dsw-static-neutral-bluish-50);
+  --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-static-deepseek-100);
+  --dsw-specific-sidebar-nav-item-active: var(--dsw-static-neutral-bluish-100);
+  --dsw-specific-sidebar-nav-item-hover: var(--dsw-static-neutral-bluish-75);
+  --dsw-specific-tip: var(--dsw-static-neutral-bluish-60);
+
+  background-color: var(--dsw-alias-bg-base);
+}
+
+body[data-ds-dark-theme] {
+  --dsw-alias-bg-base: var(--dsw-static-neutral-bluish-950);
+  --dsw-alias-bg-document-preview: var(--dsw-static-neutral-bluish-950);
+  --dsw-alias-bg-document-selection: color-mix(in srgb, var(--dsw-static-blue-500) 40%, transparent);
+  --dsw-alias-label-document-preview: var(--dsw-static-neutral-bluish-300);
+  --dsw-alias-bg-layer-1: var(--dsw-static-neutral-bluish-875);
+  --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.5);
+  --dsw-alias-bg-mask-2: rgba(0, 0, 0, 0.2);
+  --dsw-alias-bg-mask-3: rgba(0, 0, 0, 0.48);
+  --dsw-alias-bg-mask-photo: rgba(0, 0, 0, 0.88);
+  --dsw-alias-bg-mask-drop: rgba(39, 39, 48, 0.7);
+  --dsw-alias-bg-module-platform: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-bg-multi-select: var(--dsw-static-neutral-850);
+  --dsw-alias-bg-overlay: var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-bg-skeleton: rgba(255, 255, 255, 0.08);
+  --dsw-alias-border-inverted2: rgba(255, 255, 255, 0.08);
+  --dsw-alias-border-inverted: rgba(255, 255, 255, 0.06);
+  --dsw-alias-border-l1: rgba(255, 255, 255, 0.06);
+  --dsw-alias-border-l2-darkmode-thin: rgba(255, 255, 255, 0.06);
+  --dsw-alias-border-l2: rgba(255, 255, 255, 0.12);
+  --dsw-alias-border-l3: rgba(255, 255, 255, 0.16);
+  --dsw-alias-border-l4: rgba(255, 255, 255, 0.2);
+  --dsw-alias-brand-primary-invert: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-brand-primary-new-colorprimary-new-color: var(--dsw-static-deepseek-450);
+  --dsw-alias-brand-primary: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-brand-text: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-button-contrast-fill: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-button-elevated-fill: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-button-floating-fill: var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-button-floating-hover: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-button-ghost-active-border: var(--dsw-static-neutral-bluish-600);
+  --dsw-alias-button-ghost-active-fill: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-button-ghost-active-hover: var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-button-info-fill: var(--dsw-static-deepseek-400);
+  --dsw-alias-button-info-hover: var(--dsw-static-deepseek-500);
+  --dsw-alias-button-primary-dimmed: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
+  --dsw-alias-button-primary-hover: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-button-tool-bar-fill-invisible: rgba(31, 31, 31, 0.36);
+  --dsw-alias-button-tool-bar-fill: rgba(84, 85, 87, 0.5);
+  --dsw-alias-button-tool-bar-hover: rgba(84, 85, 87, 0.6);
+  --dsw-alias-interactive-bg-active: rgba(255, 255, 255, 0.14);
+  --dsw-alias-interactive-bg-hover-accent: rgba(255, 255, 255, 0.24);
+  --dsw-alias-interactive-bg-hover-danger: rgba(242, 90, 90, 0.15);
+  --dsw-alias-interactive-bg-hover-solid: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.08);
+  --dsw-alias-label-caption: var(--dsw-static-neutral-bluish-600);
+  --dsw-alias-label-deep-diving: color-mix(in srgb, var(--dsw-static-deepseek-450) 55%, var(--dsw-static-neutral-bluish-400));
+  --dsw-alias-label-deep-diving-shimmer: color-mix(in srgb, var(--dsw-static-blue-300) 65%, var(--dsw-static-deepseek-400));
+  --dsw-alias-label-dimmed: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-label-primary-bluish: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-label-primary-dimmed: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-label-primary-foreground: var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-label-primary-inverted: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-label-primary: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-label-secondary: var(--dsw-static-neutral-bluish-300);
+  --dsw-alias-label-shimmer: color-mix(in srgb, var(--dsw-static-neutral-00) 45%, transparent);
+  --dsw-alias-label-tertiary: var(--dsw-static-neutral-bluish-400);
+  --dsw-alias-menu-icon: var(--dsw-alias-label-primary-dimmed);
+  --dsw-alias-link: var(--dsw-static-deepseek-400);
+  --dsw-alias-markdown-citation: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-markdown-code-block-banner: var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-markdown-code-block: var(--dsw-static-neutral-bluish-900);
+  --dsw-alias-markdown-code-segment-selected: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-markdown-code-segment-unselected: var(--dsw-static-neutral-bluish-900);
+  --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-800);
+  --dsw-alias-markdown-placeholder: var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-markdown-tag: var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-scrollbar-bg-l1: var(--dsw-static-neutral-700);
+  --dsw-alias-scrollbar-bg-l2: var(--dsw-static-neutral-600);
+  --dsw-alias-scrollbar-hover-l1: var(--dsw-static-neutral-600);
+  --dsw-alias-scrollbar-hover-l2: var(--dsw-static-neutral-550);
+  --dsw-alias-state-business-primary: var(--dsw-static-deepseek-400);
+  --dsw-alias-state-business-tertiary: var(--dsw-static-deepseek-800);
+  --dsw-alias-code-diff-added: var(--dsw-static-green-500-a12);
+  --dsw-alias-code-diff-deleted: var(--dsw-static-red-400-a12);
+  --dsw-alias-file-diff-added-bg: rgb(31, 49, 36);
+  --dsw-alias-file-diff-added-gutter: rgb(19, 32, 22);
+  --dsw-alias-file-diff-added-marker: rgb(65, 201, 119);
+  --dsw-alias-file-diff-deleted-bg: rgb(60, 31, 27);
+  --dsw-alias-file-diff-deleted-gutter: rgb(40, 19, 14);
+  --dsw-alias-file-diff-deleted-marker: rgb(250, 66, 62);
+  --dsw-alias-state-error-primary: var(--dsw-static-red-400);
+  --dsw-alias-state-error-secondary: var(--dsw-static-red-400);
+  --dsw-alias-state-idle-primary: var(--dsw-static-neutral-600);
+  --dsw-alias-state-success-primary: var(--dsw-static-green-500);
+  --dsw-alias-state-success-secondary: var(--dsw-static-green-400);
+  --dsw-alias-state-success-tertiary: var(--dsw-static-green-900);
+  --dsw-alias-state-warn-label: var(--dsw-static-amber-600);
+  --dsw-alias-state-warn-primary: var(--dsw-static-amber-500);
+  --dsw-alias-state-warn-secondary: var(--dsw-static-amber-400);
+  --dsw-alias-state-warn-tertiary: var(--dsw-static-amber-900);
+  --dsw-alias-switch-thumb: var(--dsw-static-neutral-bluish-400);
+  --dsw-alias-toast-bg: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-toast-label: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-turn-trigger-bg: var(--dsw-alias-interactive-bg-hover);
+  --dsw-alias-turn-trigger-bg-hover: var(--dsw-alias-interactive-bg-active);
+  --dsw-alias-tooltip-bg: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-tooltip-key-bg: color-mix(in srgb, var(--dsw-alias-tooltip-bg), white 18%);
+  --dsw-specific-bubble-highlight: var(--dsw-static-neutral-bluish-750);
+  --dsw-specific-bubble: var(--dsw-static-neutral-bluish-850);
+  --dsw-specific-input-major: var(--dsw-static-neutral-bluish-850);
+  --dsw-specific-login-input: var(--dsw-static-neutral-bluish-900);
+  --dsw-menu-surface-fill: rgba(67, 69, 74, 0.45);
+  --dsw-alias-menu-group-header-fill: rgba(48, 49, 54, 0.94);
+  --dsw-specific-menu: var(--dsw-menu-surface-fill);
+  --dsw-specific-selector: var(--dsw-static-neutral-bluish-800);
+  --dsw-specific-sidebar-fill: var(--dsw-static-neutral-bluish-900);
+  --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-static-neutral-bluish-800);
+  --dsw-specific-sidebar-nav-item-active: var(--dsw-static-neutral-bluish-750);
+  --dsw-specific-sidebar-nav-item-hover: var(--dsw-static-neutral-bluish-850);
+  --dsw-specific-tip: var(--dsw-static-neutral-bluish-800);
+}
+
+/* Overlays without MenuSurface's opaque backing cannot blur page content over
+ * native vibrancy reliably, so their fill stays nearly opaque on macOS. */
+html[data-platform='darwin'] body {
+  --dsw-specific-menu: rgba(248, 249, 250, 0.94);
+}
+
+html[data-platform='darwin'] body[data-ds-dark-theme] {
+  --dsw-specific-menu: rgba(48, 49, 54, 0.94);
+}
+
+
+/* ============================================================
+   预览外壳：真实 token 之上只加一个舞台与工具条
+   ============================================================ */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--dsw-font-family);
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  -webkit-font-smoothing: antialiased;
+}
+.stage { position: fixed; inset: 0; }
+
+/* ============================================================
+   设置面板（复刻 ui-settings-general/SettingsRoot.module.css）
+   ============================================================ */
+.overlay { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; }
+.mask { position: absolute; inset: 0; background: var(--dsw-alias-bg-mask-1); backdrop-filter: var(--dsw-menu-backdrop-filter); }
+.panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 800px;
+  height: min(800px, calc(100vh - 48px));
+  max-width: calc(100vw - 48px);
+  border-radius: var(--dsw-radius-panel);
+  overflow: hidden;
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-elevation-prominent);
+}
+.nav { flex: none; display: flex; flex-direction: column; gap: 18px; width: 188px; padding: 22px 12px 0; }
+.navTitle { padding: 0 12px; font-size: 16px; line-height: 24px; font-weight: 500; }
+.navList { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+.navCell {
+  display: flex; align-items: center; gap: 8px; height: 40px; padding: 9px 16px 9px 12px;
+  border: none; border-radius: var(--dsw-radius-md); background: transparent; cursor: pointer;
+  font-family: inherit; font-size: 14px; line-height: 22px; font-weight: 400;
+  color: var(--dsw-alias-label-primary); text-align: left;
+}
+.navCell:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
+.navCell.active { background: var(--dsw-specific-sidebar-nav-item-active); }
+.navIcon { flex: none; display: inline-flex; color: var(--dsw-alias-label-secondary); }
+.navLabel { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.header { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; height: 54px; padding: 20px 14px 8px 10px; }
+.actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
+.close {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  padding: 0; border: none; border-radius: var(--dsw-radius-sm); background: transparent;
+  cursor: pointer; color: var(--dsw-alias-label-primary);
+}
+.close:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.options { flex: 1; min-height: 0; padding: 0 24px 0; overflow-y: auto; }
+
+/* 按钮（复刻 ui-primitives/Button.module.css 的 outline/sm） */
+.btn {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  border: none; border-radius: var(--dsw-radius-md); cursor: pointer; font-family: inherit;
+  font-size: 14px; line-height: 22px; color: var(--dsw-alias-label-primary); background: transparent; padding: 0 14px; height: 36px;
+}
+.btn:disabled { cursor: not-allowed; opacity: 0.4; }
+.btn-sm { height: 28px; font-size: 12px; line-height: 18px; padding: 0 10px; border-radius: var(--dsw-radius-sm); }
+.btn-outline { border: 0.5px solid var(--dsw-alias-border-l3); }
+.btn-outline:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
+.btn-primary { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); }
+.btn-primary:hover:not(:disabled) { background: var(--dsw-alias-button-primary-hover); }
+
+/* ============================================================
+   同步设置页
+   ============================================================ */
+.page { display: flex; flex-direction: column; gap: 12px; max-width: 720px; padding-bottom: 24px; }
+.pageTitle { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; }
+.pageIntro { margin: 0; font-size: 14px; line-height: 22px; color: var(--dsw-alias-label-tertiary); }
+
+/* 卡片：官方 settings-card 材料（ModelsSection 同款） */
+.card {
+  border: 0.5px solid var(--dsw-alias-settings-card-stroke);
+  background: var(--dsw-alias-settings-card-fill);
+  border-radius: var(--dsw-radius-xl);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+}
+.card + .card { margin-top: 0; }
+.cardHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; }
+.cardTitle { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.5; }
+.cardMeta { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+
+/* 行语法：左标题+描述 / 右控件，发丝线分隔（UploadRow 同款） */
+.row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 12px 0; }
+/* 组内分隔：相邻内容块之间画 0.5px 发丝线；卡片标题后的第一块不画 */
+.card > * + * { border-top: 0.5px solid var(--dsw-alias-border-l2); }
+.card > .cardHead + * { border-top: none; }
+.rowText { min-width: 0; }
+.rowTitle { font-size: 14px; line-height: 20px; }
+.rowDesc { margin-top: 2px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
+.rowControl { flex: none; display: flex; align-items: center; gap: 8px; }
+
+.field { display: flex; flex-direction: column; gap: 4px; padding: 12px 0; }
+.label { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
+.hint { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.error { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-state-error-primary); }
+.fieldRow { display: flex; align-items: flex-start; gap: 24px; }
+/* 一行两列字段：标签在上、控件在下；左列吃满剩余宽度，右列固定宽 */
+.rowFields { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 24px; align-items: start; padding: 12px 0; }
+.rowFields > .field { padding: 0; }
+.rowFields .select { width: 100%; }
+
+/* 输入控件（复刻 ui-primitives/Input.module.css） */
+.input, .select {
+  height: 32px; padding: 0 8px; border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 14px; line-height: 22px; outline: none;
+}
+.input:focus, .select:focus { border-color: var(--dsw-alias-state-business-primary); }
+.input { width: 100%; }
+.select { width: 148px; }
+.field[data-disabled='true'] .input,
+.field[data-disabled='true'] .select,
+.row[data-disabled='true'] { opacity: 0.5; }
+.field[data-disabled='true'] .input,
+.field[data-disabled='true'] .select { cursor: not-allowed; }
+
+/* 开关（复刻 ui-primitives/Switch.module.css） */
+.switch {
+  position: relative; flex: 0 0 auto; width: 36px; height: 20px; padding: 2px;
+  border: 0; border-radius: 999px; background: var(--dsw-alias-border-l3); cursor: pointer;
+}
+.switch[aria-checked='true'] { background: var(--dsw-alias-brand-primary); }
+.switch:disabled { cursor: default; opacity: 0.5; }
+.switch .thumb {
+  display: block; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--dsw-alias-switch-thumb); transition: transform 120ms ease;
+}
+.switch[aria-checked='true'] .thumb { background: var(--dsw-alias-label-primary-foreground); transform: translateX(16px); }
+
+/* 标签（复刻 ui-primitives/Tag.module.css 的 capsule） */
+.tag {
+  display: inline-flex; align-items: center; border-radius: 999px; padding: 1px 8px;
+  font-size: 11px; line-height: 17px; font-weight: 500; white-space: nowrap;
+}
+.tag-warning { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent); color: var(--dsw-alias-state-warn-primary); }
+.tag-neutral { background: var(--dsw-alias-bg-module-platform); color: var(--dsw-alias-label-secondary); }
+
+/* 状态详情网格（PluginInventorySettingsTab 的 .details 同款） */
+.details[hidden] { display: none; }
+.details { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 6px 10px; margin: 10px 0 0; }
+.details dt { color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 17px; }
+.details dd { min-width: 0; margin: 0; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.details dd.error { color: var(--dsw-alias-state-error-primary); }
+
+/* 折叠日志 */
+.disclosure { margin-top: 10px; padding-top: 10px; }
+.disclosure > summary {
+  cursor: pointer; user-select: none; list-style: none;
+  font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary);
+  display: flex; align-items: center; gap: 6px;
+}
+.disclosure > summary::-webkit-details-marker { display: none; }
+.disclosure > summary .arrow { transition: transform 150ms var(--ds-ease-in-out); }
+.disclosure[open] > summary .arrow { transform: rotate(90deg); }
+.disclosure > summary svg { color: var(--dsw-alias-label-caption); }
+.logList { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+.logEntry { display: flex; gap: 10px; padding: 6px 8px; border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-bg-module-platform); font-size: 12px; line-height: 18px; }
+.logTime { flex: none; color: var(--dsw-alias-label-tertiary); }
+
+/* ============================================================
+   同步会话集合：复刻侧栏会话树的行结构
+   （ui-workspace/rows/Rows.module.css + WorkspaceBrowser.module.css）
+   ============================================================ */
+.tree { display: flex; flex-direction: column; padding: 2px 0 4px; }
+.treeGroup + .treeGroup { margin-top: 4px; }
+.groupRow {
+  display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px;
+  border-radius: var(--dsw-radius-md); cursor: pointer; user-select: none;
+  color: var(--dsw-alias-label-primary);
+}
+.groupRow:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.slot { flex: none; width: 16px; height: 20px; display: inline-flex; align-items: center; justify-content: center; }
+.folder { color: var(--dsw-alias-label-tertiary); }
+.chevron { display: none; color: var(--dsw-alias-label-caption); }
+/* 悬停时文件夹让位给展开箭头（harness 的 CSS-only 交换） */
+.groupRow:hover .chevron { display: inline-flex; }
+.groupRow:hover .folder { display: none; }
+.groupRow[data-expanded='false'] .folderOpen { display: none; }
+.groupRow[data-expanded='true'] .folderClose { display: none; }
+.arrow { transition: transform 150ms var(--ds-ease-in-out); }
+.groupRow[data-expanded='true'] .arrow { transform: rotate(90deg); }
+.groupText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.groupTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; }
+.groupTail { flex: none; display: flex; align-items: center; gap: 8px; font-size: 10px; line-height: 16px; color: var(--dsw-alias-label-tertiary); }
+.groupRow[data-unmatched='true'] .folder { color: var(--dsw-alias-state-warn-primary); }
+.groupBody { display: flex; flex-direction: column; }
+.groupRow[data-expanded='false'] + .groupBody { display: none; }
+
+.sessRow {
+  display: flex; align-items: center; height: 32px; padding: 0 8px;
+  border-radius: var(--dsw-radius-md); user-select: none; color: var(--dsw-alias-label-primary);
+}
+.sessRow:hover, .sessRow.menuOpen { background: var(--dsw-alias-interactive-bg-hover); }
+.sessRow.menuOpen { position: relative; }
+.sessTitle {
+  flex: 1; min-width: 0; margin: 0 6px 0 10px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 14px; line-height: 20px;
+}
+.sessRow[data-present='false'] .sessTitle { color: var(--dsw-alias-label-caption); }
+.sessTime { flex: none; font-size: 10px; line-height: 16px; color: var(--dsw-alias-label-tertiary); }
+.sessRow:hover .sessTime, .sessRow.menuOpen .sessTime { display: none; }
+.sessActions { flex: none; display: none; align-items: center; gap: 10px; }
+.sessRow:hover .sessActions, .sessRow.menuOpen .sessActions { display: inline-flex; }
+.iconButton {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+  border: none; border-radius: var(--dsw-radius-xs); padding: 0; background: transparent;
+  cursor: pointer; color: var(--dsw-alias-label-tertiary);
+}
+.iconButton:hover { color: var(--dsw-alias-label-primary); }
+/* 状态点（复刻 ui-primitives/StateDot.module.css 的 6px core） */
+.dot { position: relative; display: inline-block; flex: none; width: 16px; height: 16px; }
+.dot::after { content: ''; position: absolute; inset: 20%; border-radius: 50%; background: currentColor; }
+.dot[data-state='error'] { color: var(--dsw-alias-state-error-primary); }
+.dot[data-state='warning'] { color: var(--dsw-alias-state-warn-primary); }
+.dot[data-state='idle'] { color: var(--dsw-alias-state-idle-primary); }
+
+/* 行内菜单 */
+.menu {
+  position: absolute; top: calc(100% - 2px); right: 6px; z-index: 100; min-width: 144px;
+  padding: 4px; display: flex; flex-direction: column;
+  border-radius: var(--dsw-radius-md); background: var(--dsw-menu-surface-fill);
+  backdrop-filter: blur(20px); box-shadow: var(--dsw-elevation-prominent);
+}
+.menu[hidden] { display: none; }
+.menuItem {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; padding: 6px 8px;
+  border: none; border-radius: var(--dsw-radius-md); background: transparent; cursor: pointer;
+  font-family: inherit; font-size: 13px; line-height: 20px; color: var(--dsw-alias-label-primary); text-align: left;
+}
+.menuItem:hover { background: var(--dsw-alias-interactive-bg-hover); }
+
+/* 空态 */
+.empty { display: flex; flex-direction: column; gap: 6px; padding: 16px 0 6px; }
+.emptyTitle { font-size: 14px; line-height: 20px; color: var(--dsw-alias-label-secondary); }
+
+/* 未匹配分组的补救说明 */
+.groupNote { padding: 2px 8px 6px 30px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+
+/* 吸底保存条 */
+.saveBar {
+  position: sticky; bottom: 0; z-index: 20; margin-top: 4px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; border: 0.5px solid var(--dsw-alias-settings-card-stroke);
+  border-radius: var(--dsw-radius-lg); background: var(--dsw-alias-bg-layer-3);
+  box-shadow: var(--dsw-elevation-panel);
+}
+.saveBar[hidden] { display: none; }
+.saveBarText { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
+.saveBarActions { display: flex; gap: 8px; flex: none; }
+
+/* ============================================================
+   工具条（仅预览用，不属于设计）
+   ============================================================ */
+.toolbar {
+  position: fixed; right: 16px; top: 6px; z-index: 50;
+  display: flex; gap: 14px; align-items: center;
+  padding: 5px 10px; border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-3); box-shadow: var(--dsw-elevation-prominent);
+  font-size: 12px; line-height: 18px;
+}
+.toolbarRow { display: flex; align-items: center; gap: 6px; }
+.toolbarLabel { color: var(--dsw-alias-label-tertiary); margin-right: 2px; }
+.tbtn {
+  border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);
+  background: transparent; color: var(--dsw-alias-label-primary); cursor: pointer;
+  font-family: inherit; font-size: 12px; line-height: 18px; height: 26px; padding: 0 10px;
+}
+.tbtn[aria-pressed='true'] { background: var(--dsw-alias-interactive-bg-hover); border-color: var(--dsw-alias-border-l4); }
+
+</style>
+<style>
+
+/* ============================================================
+   工作区提示词设置页（本次改版）
+   ============================================================ */
+.banner {
+  margin: 0; padding: 10px 12px;
+  border: 0.5px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 35%, transparent);
+  border-radius: var(--dsw-radius-lg);
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 9%, transparent);
+  font-size: 12px; line-height: 18px; color: var(--dsw-alias-state-warn-label);
+}
+.banner[hidden] { display: none; }
+
+.headActions { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.picker { position: relative; flex: none; }
+
+.pickerMenu {
+  top: calc(100% + 4px); right: 0; min-width: 280px; max-width: 380px;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  box-shadow: var(--dsw-elevation-prominent);
+  backdrop-filter: none;
+}
+.pickerLabel {
+  padding: 6px 8px 4px; font-size: 11px; line-height: 17px;
+  color: var(--dsw-alias-label-tertiary);
+}
+.pickerItem {
+  display: flex; flex-direction: column; gap: 2px; width: 100%;
+  padding: 6px 8px; border: 0; border-radius: var(--dsw-radius-md);
+  background: transparent; cursor: pointer; text-align: left;
+  font-family: inherit; color: inherit;
+}
+.pickerItem:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.pickerTitle { font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-primary); }
+.pickerPath {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--dsh-font-family-code-default, monospace);
+  font-size: 11px; line-height: 16px; color: var(--dsw-alias-label-tertiary);
+}
+
+.listHint {
+  margin: 0; padding: 12px 8px 2px;
+  font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary);
+}
+.listHint[hidden] { display: none; }
+.card > .listHint { border-top: none; }
+.card > .listHint + .wsList { border-top: none; }
+
+.wsList { display: flex; flex-direction: column; }
+.wsItem + .wsItem { border-top: 0.5px solid var(--dsw-alias-border-l2); }
+.wsItem[data-enabled='false'] .folder { color: var(--dsw-alias-label-caption); }
+.wsItem[data-empty] .folder { color: var(--dsw-alias-label-caption); }
+.wsItem[data-empty] .wsTitle { color: var(--dsw-alias-label-secondary); }
+
+.divider {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 14px 8px 4px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+.dividerLabel { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
+.dividerCount { font-size: 11px; line-height: 17px; color: var(--dsw-alias-label-caption); }
+
+.wsRow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 8px; border-radius: var(--dsw-radius-md);
+}
+.wsRow:hover { background: var(--dsw-alias-interactive-bg-hover); }
+
+.wsMain {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  padding: 0; border: 0; background: transparent; cursor: pointer;
+  font-family: inherit; color: inherit; text-align: left;
+}
+.wsMain.static { cursor: default; }
+.wsMain:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid
+    var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px; border-radius: var(--dsw-radius-sm);
+}
+
+.wsText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.wsTitle {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 14px; line-height: 20px; color: var(--dsw-alias-label-primary);
+}
+.wsPreview {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary);
+}
+.wsPreview.mono {
+  font-family: var(--dsh-font-family-code-default, monospace);
+  font-size: 11px; line-height: 17px;
+}
+
+.wsState {
+  flex: none; font-size: 12px; line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+.wsItem[data-enabled='false'] .wsState { color: var(--dsw-alias-label-tertiary); }
+.wsState.muted { color: var(--dsw-alias-label-tertiary); }
+
+.wsChevron {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; color: var(--dsw-alias-label-caption);
+  transition: transform 150ms var(--ds-ease-in-out), color 120ms linear;
+}
+.wsRow:hover .wsChevron { color: var(--dsw-alias-label-tertiary); }
+.wsItem.open .wsChevron { transform: rotate(90deg); }
+.wsItem.pending .wsChevron { visibility: hidden; }
+
+.wsEditor {
+  margin: 2px 8px 12px 32px; padding: 12px;
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-module-platform);
+}
+.wsEditor[hidden] { display: none; }
+.editorHead {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 6px;
+}
+.editorLabel { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
+.editorCount {
+  flex: none; font-size: 11px; line-height: 17px;
+  color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums;
+}
+.textarea {
+  width: 100%; min-height: 88px; resize: vertical;
+  padding: 8px 10px; border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary);
+  font-family: inherit; font-size: 13px; line-height: 22px; outline: none;
+}
+.textarea:focus { border-color: var(--dsw-alias-state-business-primary); }
+.textarea::placeholder { color: var(--dsw-alias-label-caption); }
+.textarea:disabled {
+  color: var(--dsw-alias-label-tertiary); cursor: not-allowed; opacity: 0.7;
+}
+.editorFoot {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; margin-top: 8px;
+}
+.editorFoot .hint { flex: 1; min-width: 0; margin: 0; }
+.editorActions { flex: none; display: flex; gap: 8px; }
+.btn-danger { color: var(--dsw-alias-state-error-primary); }
+.btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent); }
+.tag-new {
+  flex: none; display: inline-flex; align-items: center; border-radius: 999px;
+  padding: 1px 8px; font-size: 11px; line-height: 17px; font-weight: 500;
+  color: var(--dsw-alias-state-business-primary);
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);
+}
+
+.wsItem.flash .wsRow { animation: rowFlash 1.2s ease; }
+@keyframes rowFlash {
+  from { background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 14%, transparent); }
+  to { background: transparent; }
+}
+
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="overlay">
+    <div class="mask"></div>
+    <div class="panel" role="dialog" aria-modal="true" aria-label="设置">
+      <nav class="nav">
+        <div class="navTitle">设置</div>
+        <div class="navList">
+          <button class="navCell"><span class="navIcon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.3" aria-hidden="true"><path d="M8 9.75012C8.9665 9.75012 9.75 8.96662 9.75 8.00012C9.75 7.03362 8.9665 6.25012 8 6.25012C7.0335 6.25012 6.25 7.03362 6.25 8.00012C6.25 8.96662 7.0335 9.75012 8 9.75012Z" stroke="currentColor"/><path d="M13.0107 7.79377C12.9505 7.89401 12.9205 7.94413 12.9205 7.99951C12.9205 8.0549 12.9505 8.10502 13.0106 8.20528L13.9849 9.83006C14.045 9.93029 14.0751 9.9804 14.0751 10.0358C14.0751 10.0911 14.045 10.1413 13.9849 10.2415L13.0037 11.8777C12.9468 11.9726 12.9184 12.0201 12.8725 12.0461C12.8267 12.072 12.7713 12.072 12.6607 12.072H10.6704C10.5598 12.072 10.5045 12.072 10.4586 12.098C10.4128 12.1239 10.3843 12.1714 10.3274 12.2662L9.33825 13.9142C9.28133 14.009 9.25287 14.0564 9.20703 14.0823C9.16118 14.1083 9.10588 14.1083 8.99529 14.1083H7.00486C6.89426 14.1083 6.83896 14.1083 6.79312 14.0823C6.74727 14.0564 6.71881 14.009 6.6619 13.9142L5.67273 12.2662C5.61581 12.1714 5.58735 12.1239 5.54151 12.098C5.49566 12.072 5.44036 12.072 5.32977 12.072H3.33945C3.2288 12.072 3.17347 12.072 3.12761 12.0461C3.08176 12.0201 3.0533 11.9726 2.9964 11.8777L2.0152 10.2415C1.9551 10.1413 1.92505 10.0911 1.92505 10.0358C1.92505 9.9804 1.9551 9.93029 2.0152 9.83006L2.98951 8.20528C3.04963 8.10502 3.07969 8.0549 3.07969 7.99951C3.07968 7.94413 3.04961 7.89401 2.98946 7.79377L2.01529 6.17011C1.95514 6.06987 1.92507 6.01975 1.92507 5.96437C1.92506 5.90899 1.95512 5.85886 2.01524 5.7586L2.9964 4.1224C3.0533 4.0275 3.08176 3.98005 3.12761 3.95408C3.17347 3.92811 3.2288 3.92811 3.33945 3.92811H5.32977C5.44036 3.92811 5.49566 3.92811 5.54151 3.90216C5.58735 3.87621 5.61581 3.82879 5.67273 3.73397L6.6619 2.08599C6.71881 1.99116 6.74727 1.94375 6.79312 1.9178C6.83896 1.89185 6.89426 1.89185 7.00486 1.89185H8.99529C9.10588 1.89185 9.16118 1.89185 9.20703 1.9178C9.25287 1.94375 9.28133 1.99116 9.33825 2.08599L10.3274 3.73397C10.3843 3.82879 10.4128 3.87621 10.4586 3.90216C10.5045 3.92811 10.5598 3.92811 10.6704 3.92811H12.6607C12.7713 3.92811 12.8267 3.92811 12.8725 3.95408C12.9184 3.98005 12.9468 4.0275 13.0037 4.1224L13.9849 5.7586C14.045 5.85886 14.0751 5.90899 14.0751 5.96437C14.0751 6.01975 14.045 6.06987 13.9849 6.17011L13.0107 7.79377Z" stroke="currentColor" stroke-miterlimit="10"/></svg></span><span class="navLabel">通用设置</span></button>
+          <button class="navCell"><span class="navIcon"><svg data-icon="IconDataOutlineMedium" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.3" aria-hidden="true"><path d="M7.8667 0.349609C8.96906 0.349634 10.0601 0.481272 11.0317 0.735352C11.9973 0.987845 12.8453 1.362 13.4644 1.84766C14.0744 2.32629 14.507 2.95539 14.5161 3.69336H14.5171V8.53516C14.0843 8.32076 13.6108 8.17679 13.1108 8.11816C13.1831 7.96848 13.2162 7.82856 13.2163 7.70312V5.76758C12.6269 6.16618 11.8739 6.47995 11.0317 6.7002C10.0602 6.95423 8.96896 7.08494 7.8667 7.08496C6.76461 7.08493 5.67411 6.95415 4.70264 6.7002C3.85994 6.48006 3.10694 6.1662 2.51709 5.76758V7.70312L2.521 7.78418C2.56374 8.19554 2.93361 8.74414 3.91357 9.23145C4.9281 9.73585 6.35004 10.0371 7.8667 10.0371C8.26373 10.0371 8.6543 10.0141 9.03271 9.97461C8.75596 10.3799 8.54664 10.8349 8.42041 11.3232C8.23666 11.3313 8.0518 11.3369 7.8667 11.3369C6.20108 11.3369 4.57025 11.01 3.33447 10.3955C3.04163 10.2499 2.76658 10.0836 2.51709 9.90039V11.6738C2.51728 12.1379 2.88589 12.7556 3.92236 13.292C4.93457 13.8157 6.35342 14.1289 7.8667 14.1289C8.12318 14.1289 8.37694 14.1161 8.62646 14.0986C8.82021 14.5535 9.08999 14.9682 9.41943 15.3271C8.91285 15.3934 8.39149 15.4287 7.8667 15.4287C6.19761 15.4287 4.56379 15.0869 3.32568 14.4463C2.11244 13.8185 1.21649 12.8562 1.21631 11.6738V3.76367C1.21595 3.74853 1.21438 3.733 1.21436 3.71777C1.21436 2.96917 1.65103 2.33053 2.26807 1.84668C2.88747 1.36112 3.73675 0.987685 4.70264 0.735352C5.67413 0.481376 6.76457 0.349636 7.8667 0.349609ZM7.8667 1.65039C6.86269 1.65042 5.88326 1.77028 5.03076 1.99316C4.17183 2.2176 3.50421 2.52956 3.06982 2.87012C2.65043 3.19909 2.52622 3.48898 2.51709 3.69336V3.74414C2.52719 3.94845 2.65185 4.23772 3.06982 4.56543C3.50425 4.90601 4.17172 5.21795 5.03076 5.44238C5.88326 5.66527 6.8627 5.78513 7.8667 5.78516C8.8707 5.78513 9.85015 5.66525 10.7026 5.44238C11.5611 5.21787 12.2286 4.9049 12.6626 4.56445C13.0982 4.22252 13.2163 3.9231 13.2163 3.71777L13.2104 3.63574C13.1818 3.43623 13.044 3.16941 12.6626 2.87012C12.2286 2.52957 11.5614 2.21773 10.7026 1.99316C9.85009 1.77025 8.8708 1.65041 7.8667 1.65039Z" fill="currentColor"/></svg></span><span class="navLabel">模型</span></button>
+          <button class="navCell"><span class="navIcon"><svg data-icon="IconPersonalizationOutlineMedium" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.3" aria-hidden="true"><path d="M3.25 7.16357C3.20417 7.32247 3.17778 7.48993 3.17773 7.66357C3.17773 7.83698 3.20336 8.00486 3.24902 8.16357H1.85742V7.16357H3.25ZM14.1426 8.16357H6.71484C6.76052 8.00485 6.78613 7.837 6.78613 7.66357C6.78609 7.48991 6.75971 7.32249 6.71387 7.16357H14.1426V8.16357Z" fill="currentColor"/><path d="M9.1377 11.9092C9.08596 12.0666 9.05668 12.2344 9.05664 12.4092C9.05664 12.5838 9.08606 12.7518 9.1377 12.9092H1.85742V11.9092H9.1377ZM14.1426 12.9092H12.1816C12.2332 12.7519 12.2617 12.5838 12.2617 12.4092C12.2617 12.2345 12.2333 12.0666 12.1816 11.9092H14.1426V12.9092Z" fill="currentColor"/><path d="M9.1123 3.09106C9.06138 3.24865 9.03324 3.41653 9.0332 3.59106C9.0332 3.76549 9.06148 3.93355 9.1123 4.09106H1.85742V3.09106H9.1123ZM14.1426 4.09106H12.207C12.2578 3.93358 12.2861 3.76545 12.2861 3.59106C12.2861 3.41657 12.2579 3.24862 12.207 3.09106H14.1426V4.09106Z" fill="currentColor"/><circle cx="4.97065" cy="7.66401" r="1.35151" stroke="currentColor"/><circle cx="10.6596" cy="12.4091" r="1.35151" stroke="currentColor"/><circle cx="10.6596" cy="3.59101" r="1.35151" stroke="currentColor"/></svg></span><span class="navLabel">内置插件</span></button>
+          <button class="navCell active" aria-current="true"><span class="navIcon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.3" aria-hidden="true"><path d="M8 9.75012C8.9665 9.75012 9.75 8.96662 9.75 8.00012C9.75 7.03362 8.9665 6.25012 8 6.25012C7.0335 6.25012 6.25 7.03362 6.25 8.00012C6.25 8.96662 7.0335 9.75012 8 9.75012Z" stroke="currentColor"/><path d="M13.0107 7.79377C12.9505 7.89401 12.9205 7.94413 12.9205 7.99951C12.9205 8.0549 12.9505 8.10502 13.0106 8.20528L13.9849 9.83006C14.045 9.93029 14.0751 9.9804 14.0751 10.0358C14.0751 10.0911 14.045 10.1413 13.9849 10.2415L13.0037 11.8777C12.9468 11.9726 12.9184 12.0201 12.8725 12.0461C12.8267 12.072 12.7713 12.072 12.6607 12.072H10.6704C10.5598 12.072 10.5045 12.072 10.4586 12.098C10.4128 12.1239 10.3843 12.1714 10.3274 12.2662L9.33825 13.9142C9.28133 14.009 9.25287 14.0564 9.20703 14.0823C9.16118 14.1083 9.10588 14.1083 8.99529 14.1083H7.00486C6.89426 14.1083 6.83896 14.1083 6.79312 14.0823C6.74727 14.0564 6.71881 14.009 6.6619 13.9142L5.67273 12.2662C5.61581 12.1714 5.58735 12.1239 5.54151 12.098C5.49566 12.072 5.44036 12.072 5.32977 12.072H3.33945C3.2288 12.072 3.17347 12.072 3.12761 12.0461C3.08176 12.0201 3.0533 11.9726 2.9964 11.8777L2.0152 10.2415C1.9551 10.1413 1.92505 10.0911 1.92505 10.0358C1.92505 9.9804 1.9551 9.93029 2.0152 9.83006L2.98951 8.20528C3.04963 8.10502 3.07969 8.0549 3.07969 7.99951C3.07968 7.94413 3.04961 7.89401 2.98946 7.79377L2.01529 6.17011C1.95514 6.06987 1.92507 6.01975 1.92507 5.96437C1.92506 5.90899 1.95512 5.85886 2.01524 5.7586L2.9964 4.1224C3.0533 4.0275 3.08176 3.98005 3.12761 3.95408C3.17347 3.92811 3.2288 3.92811 3.33945 3.92811H5.32977C5.44036 3.92811 5.49566 3.92811 5.54151 3.90216C5.58735 3.87621 5.61581 3.82879 5.67273 3.73397L6.6619 2.08599C6.71881 1.99116 6.74727 1.94375 6.79312 1.9178C6.83896 1.89185 6.89426 1.89185 7.00486 1.89185H8.99529C9.10588 1.89185 9.16118 1.89185 9.20703 1.9178C9.25287 1.94375 9.28133 1.99116 9.33825 2.08599L10.3274 3.73397C10.3843 3.82879 10.4128 3.87621 10.4586 3.90216C10.5045 3.92811 10.5598 3.92811 10.6704 3.92811H12.6607C12.7713 3.92811 12.8267 3.92811 12.8725 3.95408C12.9184 3.98005 12.9468 4.0275 13.0037 4.1224L13.9849 5.7586C14.045 5.85886 14.0751 5.90899 14.0751 5.96437C14.0751 6.01975 14.045 6.06987 13.9849 6.17011L13.0107 7.79377Z" stroke="currentColor" stroke-miterlimit="10"/></svg></span><span class="navLabel">工作区提示词</span></button>
+          <button class="navCell"><span class="navIcon"><svg data-icon="IconAgentPresetOutlineMedium" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.3" aria-hidden="true"><path d="M6.51867 12.3282C7.29816 12.6011 8.16475 12.6514 9.02269 12.4216C9.57879 12.2726 10.0784 12.0185 10.5087 11.6888C10.7819 12.0555 11.1606 12.3304 11.5913 12.4805C10.9688 13.029 10.2149 13.4478 9.35911 13.6771C8.13946 14.0038 6.90632 13.8971 5.82126 13.4533C6.15821 13.1562 6.4021 12.7652 6.51867 12.3282ZM9.17629 2.89409C11.1101 3.34433 12.739 4.81872 13.2889 6.87043C13.4219 7.3665 13.4811 7.8649 13.4774 8.35466C13.0924 8.13213 12.6422 8.01837 12.1741 8.05276L12.1711 8.05257C12.1539 7.77199 12.109 7.48889 12.0334 7.20684C11.6363 5.72533 10.5048 4.6372 9.13549 4.22844C9.25559 3.87667 9.29214 3.49087 9.22309 3.09892C9.2108 3.02922 9.19451 2.96108 9.17629 2.89409ZM4.7311 3.89107L4.78302 4.11879C4.87648 4.4488 5.04146 4.74263 5.25579 4.98896C3.98078 6.01355 3.35848 7.72904 3.8089 9.41059C3.81828 9.44559 3.82866 9.48025 3.83885 9.51479C3.38217 9.61268 2.98548 9.84137 2.68107 10.1556C2.63414 10.022 2.5897 9.88632 2.55244 9.74726C1.93301 7.43489 2.86717 5.07173 4.71504 3.76697L4.7311 3.89107Z" fill="currentColor"/><path d="M7.99136 5.28105C8.87501 5.28105 9.59136 4.56471 9.59136 3.68105C9.59136 2.7974 8.87501 2.08105 7.99136 2.08105C7.1077 2.08105 6.39136 2.7974 6.39136 3.68105C6.39136 4.56471 7.1077 5.28105 7.99136 5.28105Z" stroke="currentColor"/><path d="M3.94009 12.9417C4.82374 12.9417 5.54009 12.2254 5.54009 11.3417C5.54009 10.458 4.82374 9.7417 3.94009 9.7417C3.05643 9.7417 2.34009 10.458 2.34009 11.3417C2.34009 12.2254 3.05643 12.9417 3.94009 12.9417Z" stroke="currentColor"/><path d="M12.0851 12.9417C12.9688 12.9417 13.6851 12.2254 13.6851 11.3417C13.6851 10.458 12.9688 9.7417 12.0851 9.7417C11.2015 9.7417 10.4851 10.458 10.4851 11.3417C10.4851 12.2254 11.2015 12.9417 12.0851 12.9417Z" stroke="currentColor"/></svg></span><span class="navLabel">Agent 预设</span></button>
+          <button class="navCell"><span class="navIcon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.3" aria-hidden="true"><path d="M8 9.75012C8.9665 9.75012 9.75 8.96662 9.75 8.00012C9.75 7.03362 8.9665 6.25012 8 6.25012C7.0335 6.25012 6.25 7.03362 6.25 8.00012C6.25 8.96662 7.0335 9.75012 8 9.75012Z" stroke="currentColor"/><path d="M13.0107 7.79377C12.9505 7.89401 12.9205 7.94413 12.9205 7.99951C12.9205 8.0549 12.9505 8.10502 13.0106 8.20528L13.9849 9.83006C14.045 9.93029 14.0751 9.9804 14.0751 10.0358C14.0751 10.0911 14.045 10.1413 13.9849 10.2415L13.0037 11.8777C12.9468 11.9726 12.9184 12.0201 12.8725 12.0461C12.8267 12.072 12.7713 12.072 12.6607 12.072H10.6704C10.5598 12.072 10.5045 12.072 10.4586 12.098C10.4128 12.1239 10.3843 12.1714 10.3274 12.2662L9.33825 13.9142C9.28133 14.009 9.25287 14.0564 9.20703 14.0823C9.16118 14.1083 9.10588 14.1083 8.99529 14.1083H7.00486C6.89426 14.1083 6.83896 14.1083 6.79312 14.0823C6.74727 14.0564 6.71881 14.009 6.6619 13.9142L5.67273 12.2662C5.61581 12.1714 5.58735 12.1239 5.54151 12.098C5.49566 12.072 5.44036 12.072 5.32977 12.072H3.33945C3.2288 12.072 3.17347 12.072 3.12761 12.0461C3.08176 12.0201 3.0533 11.9726 2.9964 11.8777L2.0152 10.2415C1.9551 10.1413 1.92505 10.0911 1.92505 10.0358C1.92505 9.9804 1.9551 9.93029 2.0152 9.83006L2.98951 8.20528C3.04963 8.10502 3.07969 8.0549 3.07969 7.99951C3.07968 7.94413 3.04961 7.89401 2.98946 7.79377L2.01529 6.17011C1.95514 6.06987 1.92507 6.01975 1.92507 5.96437C1.92506 5.90899 1.95512 5.85886 2.01524 5.7586L2.9964 4.1224C3.0533 4.0275 3.08176 3.98005 3.12761 3.95408C3.17347 3.92811 3.2288 3.92811 3.33945 3.92811H5.32977C5.44036 3.92811 5.49566 3.92811 5.54151 3.90216C5.58735 3.87621 5.61581 3.82879 5.67273 3.73397L6.6619 2.08599C6.71881 1.99116 6.74727 1.94375 6.79312 1.9178C6.83896 1.89185 6.89426 1.89185 7.00486 1.89185H8.99529C9.10588 1.89185 9.16118 1.89185 9.20703 1.9178C9.25287 1.94375 9.28133 1.99116 9.33825 2.08599L10.3274 3.73397C10.3843 3.82879 10.4128 3.87621 10.4586 3.90216C10.5045 3.92811 10.5598 3.92811 10.6704 3.92811H12.6607C12.7713 3.92811 12.8267 3.92811 12.8725 3.95408C12.9184 3.98005 12.9468 4.0275 13.0037 4.1224L13.9849 5.7586C14.045 5.85886 14.0751 5.90899 14.0751 5.96437C14.0751 6.01975 14.045 6.06987 13.9849 6.17011L13.0107 7.79377Z" stroke="currentColor" stroke-miterlimit="10"/></svg></span><span class="navLabel">会话同步</span></button>
+          <button class="navCell"><span class="navIcon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.3" aria-hidden="true"><path d="M8 9.75012C8.9665 9.75012 9.75 8.96662 9.75 8.00012C9.75 7.03362 8.9665 6.25012 8 6.25012C7.0335 6.25012 6.25 7.03362 6.25 8.00012C6.25 8.96662 7.0335 9.75012 8 9.75012Z" stroke="currentColor"/><path d="M13.0107 7.79377C12.9505 7.89401 12.9205 7.94413 12.9205 7.99951C12.9205 8.0549 12.9505 8.10502 13.0106 8.20528L13.9849 9.83006C14.045 9.93029 14.0751 9.9804 14.0751 10.0358C14.0751 10.0911 14.045 10.1413 13.9849 10.2415L13.0037 11.8777C12.9468 11.9726 12.9184 12.0201 12.8725 12.0461C12.8267 12.072 12.7713 12.072 12.6607 12.072H10.6704C10.5598 12.072 10.5045 12.072 10.4586 12.098C10.4128 12.1239 10.3843 12.1714 10.3274 12.2662L9.33825 13.9142C9.28133 14.009 9.25287 14.0564 9.20703 14.0823C9.16118 14.1083 9.10588 14.1083 8.99529 14.1083H7.00486C6.89426 14.1083 6.83896 14.1083 6.79312 14.0823C6.74727 14.0564 6.71881 14.009 6.6619 13.9142L5.67273 12.2662C5.61581 12.1714 5.58735 12.1239 5.54151 12.098C5.49566 12.072 5.44036 12.072 5.32977 12.072H3.33945C3.2288 12.072 3.17347 12.072 3.12761 12.0461C3.08176 12.0201 3.0533 11.9726 2.9964 11.8777L2.0152 10.2415C1.9551 10.1413 1.92505 10.0911 1.92505 10.0358C1.92505 9.9804 1.9551 9.93029 2.0152 9.83006L2.98951 8.20528C3.04963 8.10502 3.07969 8.0549 3.07969 7.99951C3.07968 7.94413 3.04961 7.89401 2.98946 7.79377L2.01529 6.17011C1.95514 6.06987 1.92507 6.01975 1.92507 5.96437C1.92506 5.90899 1.95512 5.85886 2.01524 5.7586L2.9964 4.1224C3.0533 4.0275 3.08176 3.98005 3.12761 3.95408C3.17347 3.92811 3.2288 3.92811 3.33945 3.92811H5.32977C5.44036 3.92811 5.49566 3.92811 5.54151 3.90216C5.58735 3.87621 5.61581 3.82879 5.67273 3.73397L6.6619 2.08599C6.71881 1.99116 6.74727 1.94375 6.79312 1.9178C6.83896 1.89185 6.89426 1.89185 7.00486 1.89185H8.99529C9.10588 1.89185 9.16118 1.89185 9.20703 1.9178C9.25287 1.94375 9.28133 1.99116 9.33825 2.08599L10.3274 3.73397C10.3843 3.82879 10.4128 3.87621 10.4586 3.90216C10.5045 3.92811 10.5598 3.92811 10.6704 3.92811H12.6607C12.7713 3.92811 12.8267 3.92811 12.8725 3.95408C12.9184 3.98005 12.9468 4.0275 13.0037 4.1224L13.9849 5.7586C14.045 5.85886 14.0751 5.90899 14.0751 5.96437C14.0751 6.01975 14.045 6.06987 13.9849 6.17011L13.0107 7.79377Z" stroke="currentColor" stroke-miterlimit="10"/></svg></span><span class="navLabel">通知</span></button>
+        </div>
+      </nav>
+      <div class="content">
+        <div class="header">
+          <div class="actions"><button class="btn btn-outline btn-sm">打开配置文件</button></div>
+          <button class="close" aria-label="关闭设置"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="1" aria-hidden="true"><path d="M2.5 2.5L13.5 13.5" stroke="currentColor"/><path d="M13.5 2.5L2.5 13.5" stroke="currentColor"/></svg></button>
+        </div>
+        <div class="options">
+          <div class="page" id="p-page">
+  <h2 class="pageTitle">工作区提示词</h2>
+  <p class="pageIntro">为每个工作区保存一段专属提示词。开关打开后，会话第一次真正用到它之前只确认一次：选「带上」就注入，选「不带」该会话不再询问，开关不变。</p>
+
+  <p class="banner" id="p-banner" hidden>配置当前不可写：Host 还没有给出可用的配置表单。请稍后重试；若刚升级插件，重启 dsh web 即可。</p>
+
+  <section class="card">
+    <div class="cardHead">
+      <h3 class="cardTitle">工作区</h3>
+      <div class="headActions">
+        <span class="cardMeta" id="p-meta">已配置 8 个 / 共 11 个工作区</span>
+        <div class="picker" id="p-picker">
+          <button type="button" class="btn btn-primary btn-sm" id="p-add" aria-haspopup="menu" aria-expanded="false">＋ 添加工作区</button>
+          <div class="menu pickerMenu" id="p-menu" hidden></div>
+        </div>
+      </div>
+    </div>
+    <p class="listHint" id="p-hint" hidden>还没有配置任何提示词：点击右上角「添加工作区」开始。</p>
+    <div class="wsList" id="p-list"></div>
+  </section>
+</div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <div class="toolbarRow"><span class="toolbarLabel">主题</span><button class="tbtn" id="t-light" aria-pressed="true">浅色</button><button class="tbtn" id="t-dark" aria-pressed="false">深色</button></div>
+  <div class="toolbarRow"><span class="toolbarLabel">状态</span><button class="tbtn" id="s-default" aria-pressed="true">默认</button><button class="tbtn" id="s-editing" aria-pressed="false">编辑中</button><button class="tbtn" id="s-empty" aria-pressed="false">空状态</button><button class="tbtn" id="s-readonly" aria-pressed="false">只读</button></div>
+</div>
+
+<script>
+const ICON_FOLDER = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" aria-hidden=\"true\"><path d=\"M1.50439 3.11059C1.50439 2.55831 1.95211 2.1106 2.50439 2.1106H5.43389C5.67773 2.1106 5.91318 2.19969 6.09593 2.36113L7.71649 3.79265C7.89924 3.95409 8.1347 4.04319 8.3785 4.04319H13.4958C14.0481 4.04319 14.4958 4.4909 14.4958 5.04319V12.8894C14.4958 13.4417 14.0481 13.8894 13.4958 13.8894H2.50439C1.95211 13.8894 1.50439 13.4417 1.50439 12.8894V4.04319V3.11059Z\" stroke=\"currentColor\"/><path d=\"M3.63501 7.66614H12.3647\" stroke=\"currentColor\"/></svg>";
+const ICON_CHEVRON = "<svg class=\"arrow\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" aria-hidden=\"true\"><path d=\"M5.5 4.5C5.5 4.40714 5.52586 4.31612 5.57467 4.23713C5.62349 4.15815 5.69334 4.09431 5.77639 4.05279C5.85945 4.01126 5.95242 3.99368 6.0449 4.00202C6.13738 4.01036 6.22572 4.04429 6.3 4.1L10.967 7.6C11.0291 7.64657 11.0795 7.70697 11.1142 7.77639C11.1489 7.84582 11.167 7.92238 11.167 8C11.167 8.07762 11.1489 8.15418 11.1142 8.22361C11.0795 8.29303 11.0291 8.35343 10.967 8.4L6.3 11.9C6.22572 11.9557 6.13738 11.9896 6.0449 11.998C5.95242 12.0063 5.85945 11.9887 5.77639 11.9472C5.69334 11.9057 5.62349 11.8419 5.57467 11.7629C5.52586 11.6839 5.5 11.5929 5.5 11.5V4.5Z\" fill=\"currentColor\"/></svg>";
+
+const DEMO = [
+  { title: 'dsh-workspace-prompt', path: '/Users/linbin/mkworkplace/dsh-workspace-prompt',
+    text: '本仓库使用 pnpm 管理依赖，提交信息用中文。\n改动前先读 docs/architecture.md，不要直接改 lib/ 产物。', enabled: true },
+  { title: 'MKAdmin', path: '/Users/linbin/mkworkplace/MKAdmin',
+    text: 'MKAdmin前端工程\n/Users/linbin/mkworkplace/MKAdminForWeb\n\ndailyForServer每刻服务端工程\n/Users/linbin/mkworkplace/dailyForServer', enabled: true },
+  { title: 'dailyForServer', path: '/Users/linbin/mkworkplace/dailyForServer',
+    text: 'daily小程序前端工程\n/Users/linbin/mkworkplace/daily', enabled: true },
+  { title: 'daily', path: '/Users/linbin/mkworkplace/daily',
+    text: '每刻后端工程：/Users/linbin/mkworkplace/dailyForServer', enabled: false },
+  { title: 'deepseek-harness', path: '/Users/linbin/mkworkplace/deepseek-harness',
+    text: 'deepseek-harness工程位置\n/Users/linbin/mkworkplace/deepseek-harness', enabled: false },
+  { title: 'dsh-session-sync', path: '/Users/linbin/mkworkplace/dsh-session-sync',
+    text: 'deepseek-harness工程位置\n/Users/linbin/mkworkplace/deepseek-harness', enabled: false },
+  { title: 'dsh-brand-deepseek', path: '/Users/linbin/mkworkplace/dsh-brand-deepseek',
+    text: 'deepseek-harness工程位置\n/Users/linbin/mkworkplace/deepseek-harness', enabled: false },
+  { title: 'dsh-notify', path: '/Users/linbin/mkworkplace/dsh-notify',
+    text: 'deepseek-harness工程位置\n/Users/linbin/mkworkplace/deepseek-harness', enabled: false },
+  { title: 'AIHelper', path: '/Users/linbin/aihelper/AIHelper', text: null },
+  { title: 'UmamiForMK', path: '/Users/linbin/mkworkplace/UmamiForMK', text: null },
+  { title: 'codex代理启动', path: '/Users/linbin/mkworkplace/codex代理启动', text: null },
+];
+
+let items = [];
+let readonly = false;
+
+const $ = (selector) => document.querySelector(selector);
+const page = document.getElementById('p-page');
+const menu = document.getElementById('p-menu');
+const addButton = document.getElementById('p-add');
+
+function esc(value) {
+  return String(value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function oneLine(text) { return text.replace(/\s+/g, ' ').trim(); }
+function chars(text) { return Array.from(text).length; }
+function clone(list) { return list.map((item) => ({ ...item })); }
+function find(path) { return items.find((item) => item.path === path); }
+function byTitle(a, b) { return a.title.localeCompare(b.title, 'zh-Hans-CN'); }
+function isConfigured(item) { return item.text !== null && item.pending !== true; }
+function configured() { return items.filter(isConfigured).sort(byTitle); }
+function pendingItems() { return items.filter((item) => item.pending === true); }
+function unconfigured() { return items.filter((item) => item.text === null && item.pending !== true).sort(byTitle); }
+function stateText(item) { return item.enabled ? '已开启' : '已关闭'; }
+
+function editorHTML(item) {
+  const pending = item.pending === true;
+  return '<div class="wsEditor" hidden>'
+    + '<div class="editorHead"><span class="editorLabel">提示词</span><span class="editorCount">' + chars(item.text || '') + ' 字</span></div>'
+    + '<textarea class="textarea" rows="4" placeholder="为该工作区编写专属提示词…">' + esc(item.text || '') + '</textarea>'
+    + '<div class="editorFoot">'
+    + '<p class="hint">开关打开时，每个会话首次注入前会确认一次。</p>'
+    + '<div class="editorActions">'
+    + (pending
+      ? '<button class="btn btn-outline btn-sm" data-act="cancel">取消</button>'
+      : '<button class="btn btn-outline btn-sm btn-danger" data-act="clear">清除</button>')
+    + '<button class="btn btn-primary btn-sm" data-act="save" disabled>保存</button>'
+    + '</div></div></div>';
+}
+
+function configuredRowHTML(item) {
+  const on = item.enabled === true;
+  const title = esc(item.title);
+  return '<div class="wsItem" data-path="' + esc(item.path) + '" data-enabled="' + String(on) + '">'
+    + '<div class="wsRow">'
+    + '<button type="button" class="wsMain" aria-expanded="false" title="' + esc(item.path) + '">'
+    + '<span class="slot folder">' + ICON_FOLDER + '</span>'
+    + '<span class="wsText"><span class="wsTitle">' + title + '</span>'
+    + '<span class="wsPreview">' + esc(oneLine(item.text)) + '</span></span>'
+    + '</button>'
+    + '<span class="wsState">' + stateText(item) + '</span>'
+    + '<button type="button" class="switch" role="switch" aria-checked="' + String(on) + '"'
+    + ' aria-label="工作区提示词开关：' + title + '"><span class="thumb"></span></button>'
+    + '<span class="wsChevron" aria-hidden="true">' + ICON_CHEVRON + '</span>'
+    + '</div>'
+    + editorHTML(item)
+    + '</div>';
+}
+
+function pendingRowHTML(item) {
+  return '<div class="wsItem pending" data-path="' + esc(item.path) + '" data-enabled="false">'
+    + '<div class="wsRow">'
+    + '<button type="button" class="wsMain" aria-expanded="false" title="' + esc(item.path) + '">'
+    + '<span class="slot folder">' + ICON_FOLDER + '</span>'
+    + '<span class="wsText"><span class="wsTitle">' + esc(item.title) + '</span>'
+    + '<span class="wsPreview">尚未保存</span></span>'
+    + '</button>'
+    + '<span class="tag-new">新配置</span>'
+    + '<span class="wsChevron" aria-hidden="true">' + ICON_CHEVRON + '</span>'
+    + '</div>'
+    + editorHTML(item)
+    + '</div>';
+}
+
+function emptyRowHTML(item) {
+  return '<div class="wsItem" data-path="' + esc(item.path) + '" data-empty="true">'
+    + '<div class="wsRow">'
+    + '<div class="wsMain static" title="' + esc(item.path) + '">'
+    + '<span class="slot folder">' + ICON_FOLDER + '</span>'
+    + '<span class="wsText"><span class="wsTitle">' + esc(item.title) + '</span>'
+    + '<span class="wsPreview mono">' + esc(item.path) + '</span></span>'
+    + '</div>'
+    + '<span class="wsState muted">未配置</span>'
+    + '</div></div>';
+}
+
+function dividerHTML(count) {
+  return '<div class="divider" role="separator">'
+    + '<span class="dividerLabel">未配置的工作区</span>'
+    + '<span class="dividerCount">' + count + '</span>'
+    + '</div>';
+}
+
+function render() {
+  const conf = configured();
+  const pend = pendingItems();
+  const rest = unconfigured();
+  let html = pend.map(pendingRowHTML).join('') + conf.map(configuredRowHTML).join('');
+  if (conf.length + pend.length > 0 && rest.length > 0) html += dividerHTML(rest.length);
+  html += rest.map(emptyRowHTML).join('');
+  document.getElementById('p-list').innerHTML = html;
+  document.getElementById('p-meta').textContent =
+    '已配置 ' + conf.length + ' 个 / 共 ' + items.length + ' 个工作区';
+  document.getElementById('p-hint').hidden = conf.length + pend.length > 0;
+  addButton.disabled = readonly || rest.length === 0;
+  addButton.setAttribute('aria-disabled', String(addButton.disabled));
+  page.dataset.readonly = String(readonly);
+  if (readonly) {
+    for (const control of page.querySelectorAll('.switch, [data-act]')) control.disabled = true;
+  }
+}
+
+function domItem(path) {
+  return document.querySelector('.wsItem[data-path="' + CSS.escape(path) + '"]');
+}
+
+function closeAll() {
+  for (const item of document.querySelectorAll('.wsItem.open')) {
+    item.classList.remove('open');
+    const editor = item.querySelector('.wsEditor');
+    if (editor) editor.hidden = true;
+    const main = item.querySelector('.wsMain');
+    if (main) main.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function openItem(item) {
+  if (!item) return;
+  const editor = item.querySelector('.wsEditor');
+  if (!editor) return;
+  closeAll();
+  const textarea = editor.querySelector('textarea');
+  const saved = find(item.dataset.path);
+  textarea.value = saved.text || '';
+  textarea.disabled = readonly;
+  item.classList.add('open');
+  item.querySelector('.wsMain').setAttribute('aria-expanded', 'true');
+  editor.hidden = false;
+  updateDraft(item);
+  if (!readonly) {
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  }
+}
+
+function updateDraft(item) {
+  const saved = find(item.dataset.path);
+  const textarea = item.querySelector('textarea');
+  const value = textarea.value;
+  item.querySelector('.editorCount').textContent = chars(value) + ' 字';
+  const save = item.querySelector('[data-act="save"]');
+  if (save) save.disabled = readonly || value === (saved.text || '') || value.trim() === '';
+}
+
+function flash(path) {
+  const item = domItem(path);
+  if (!item) return;
+  item.classList.add('flash');
+  item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  window.setTimeout(() => item.classList.remove('flash'), 1200);
+}
+
+function saveItem(item) {
+  const saved = find(item.dataset.path);
+  saved.text = item.querySelector('textarea').value.trim();
+  saved.pending = false;
+  render();
+  flash(saved.path);
+}
+
+function clearItem(item) {
+  const saved = find(item.dataset.path);
+  saved.text = null;
+  saved.enabled = false;
+  saved.pending = false;
+  render();
+  flash(saved.path);
+}
+
+function cancelItem(item) {
+  const saved = find(item.dataset.path);
+  saved.pending = false;
+  saved.text = null;
+  render();
+}
+
+function closeMenu() {
+  menu.hidden = true;
+  addButton.setAttribute('aria-expanded', 'false');
+}
+
+function openMenu() {
+  const rest = unconfigured();
+  menu.innerHTML = rest.length === 0
+    ? '<div class="pickerLabel">所有工作区都已配置提示词</div>'
+    : '<div class="pickerLabel">选择要配置提示词的工作区</div>'
+      + rest.map((item) => '<button type="button" class="pickerItem" data-add-path="' + esc(item.path) + '">'
+        + '<span class="pickerTitle">' + esc(item.title) + '</span>'
+        + '<span class="pickerPath">' + esc(item.path) + '</span></button>').join('');
+  menu.hidden = false;
+  addButton.setAttribute('aria-expanded', 'true');
+}
+
+function toggleMenu() {
+  if (menu.hidden) openMenu();
+  else closeMenu();
+}
+
+function addItem(path) {
+  const saved = find(path);
+  if (!saved) return;
+  saved.pending = true;
+  saved.text = '';
+  saved.enabled = false;
+  closeMenu();
+  render();
+  openItem(domItem(path));
+}
+
+function toggleSwitch(button) {
+  const item = button.closest('.wsItem');
+  const saved = find(item.dataset.path);
+  saved.enabled = !saved.enabled;
+  button.setAttribute('aria-checked', String(saved.enabled));
+  item.dataset.enabled = String(saved.enabled);
+  const state = item.querySelector('.wsState');
+  if (state) state.textContent = stateText(saved);
+}
+
+document.addEventListener('click', (event) => {
+  const addPath = event.target.closest('[data-add-path]');
+  if (addPath) {
+    if (!readonly) addItem(addPath.dataset.addPath);
+    return;
+  }
+  if (event.target.closest('#p-add')) {
+    if (!readonly && !addButton.disabled) toggleMenu();
+    return;
+  }
+  if (!event.target.closest('#p-picker')) closeMenu();
+
+  const act = event.target.closest('[data-act]');
+  if (act) {
+    const item = act.closest('.wsItem');
+    if (readonly) return;
+    if (act.dataset.act === 'save') saveItem(item);
+    else if (act.dataset.act === 'clear') clearItem(item);
+    else if (act.dataset.act === 'cancel') cancelItem(item);
+    return;
+  }
+  const sw = event.target.closest('.switch');
+  if (sw) {
+    if (!readonly) toggleSwitch(sw);
+    return;
+  }
+  const row = event.target.closest('.wsRow');
+  if (row !== null) {
+    const item = row.closest('.wsItem');
+    if (item.querySelector('.wsEditor') === null) return;
+    if (item.classList.contains('open')) closeAll();
+    else openItem(item);
+  }
+});
+
+document.addEventListener('input', (event) => {
+  if (event.target.matches('.textarea')) updateDraft(event.target.closest('.wsItem'));
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeMenu();
+});
+
+function setState(name) {
+  readonly = name === 'readonly';
+  items = clone(DEMO);
+  if (name === 'empty') {
+    items.forEach((item) => { item.text = null; item.enabled = false; });
+  }
+  closeAll();
+  closeMenu();
+  render();
+  document.getElementById('p-banner').hidden = name !== 'readonly';
+  for (const key of ['default', 'editing', 'empty', 'readonly']) {
+    document.getElementById('s-' + key).setAttribute('aria-pressed', String(key === name));
+  }
+  if (name === 'editing') {
+    const first = [...document.querySelectorAll('#p-list .wsItem')]
+      .find((item) => item.querySelector('.wsEditor') !== null);
+    if (first !== undefined) {
+      openItem(first);
+      const textarea = first.querySelector('textarea');
+      textarea.value += '\n另外，回复末尾标注 OK。';
+      updateDraft(first);
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }
+  }
+}
+
+function setTheme(dark) {
+  document.body.toggleAttribute('data-ds-dark-theme', dark);
+  document.getElementById('t-light').setAttribute('aria-pressed', String(!dark));
+  document.getElementById('t-dark').setAttribute('aria-pressed', String(dark));
+}
+document.getElementById('t-light').onclick = () => setTheme(false);
+document.getElementById('t-dark').onclick = () => setTheme(true);
+if (window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme(true);
+
+for (const name of ['default', 'editing', 'empty', 'readonly']) {
+  document.getElementById('s-' + name).onclick = () => setState(name);
+}
+setState('default');
+</script>
+
+
+</body>
+</html>

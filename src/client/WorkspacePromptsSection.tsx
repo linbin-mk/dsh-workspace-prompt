@@ -2,29 +2,35 @@
  * Settings overview page for the workspace-prompt plugin.
  *
  * Registered by the client plugin body as a `settings.section` contribution,
- * so it appears as its own navigation row inside the settings panel. It lists
- * every workspace with a configured prompt — read from the shared config form —
- * with in-place edit (Save) and removal (Clear) per row, plus an
- * **Add workspace** picker: workspaces without a prompt are offered in a
- * dropdown (from the live workspace list behind the `useWorkspaces` standard
- * hook), picking one opens a fresh editable row. The card list is derived in
- * one pass ({@link mergePromptRows}) — exactly one card per directory, so a
- * save's reload swaps the pending card for the persisted card atomically
- * instead of briefly rendering both. The page remounts on every visit (the
- * settings shell renders only the active section), so it always starts from a
- * fresh read of the shared form, and every write surface stays disabled while
- * the form is loading or the Host document refuses writes.
+ * so it appears as its own navigation row inside the settings panel. The page
+ * keeps the plugin's original verbs — add a workspace from a picker menu,
+ * switch a workspace's prompt on or off, save or clear inside an editor — on
+ * the settings-page design language of `dsh-session-sync`: one card, hairline
+ * separated workspace rows, and an inline editor that opens under its row.
+ *
+ * Configured workspaces come first (sorted by title), then one divider, then
+ * the registered workspaces without a prompt. Unconfigured rows are read-only:
+ * adding a prompt goes through the original Add menu in the card header.
+ *
+ * The card list is derived in one pass ({@link mergePromptRows}) — exactly one
+ * row per directory, so a save's reload swaps the pending row for the persisted
+ * row atomically. The page remounts on every visit (the settings shell renders
+ * only the active section), so it always starts from a fresh read of the shared
+ * form, and every write surface stays disabled while the form is loading or the
+ * Host document refuses writes.
  */
 
-import { useEffect, useMemo, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
-import { Button, IconPlusOutlineRegular, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
+import {
+  Button, IconChevronRightOutlineRegular, IconFolderCloseRegular, IconPlusOutlineRegular, Menu, Switch,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspacePromptsState } from './stores'
-import { PromptToggleChip, type PromptTogglePhase, type PromptToggleReason } from './WorkspacePromptToggle'
-import { mergePromptRows } from './rows'
+import { mergePromptRows, type WorkspacePromptRow } from './rows'
 import { unconfiguredWorkspaces, type WorkspaceForPicker } from './workspaces'
+import css from './WorkspacePromptsSection.module.css'
 
 /** Registrant-side business face for the settings overview section. */
 export interface WorkspacePromptsSectionInjected {
@@ -45,234 +51,194 @@ export type WorkspacePromptsSectionProps =
   & PropsLocale<'workspace-prompt'>
   & InjectFace<WorkspacePromptsSectionInjected>
 
-/** Shared card chrome (design tokens with neutral fallbacks). */
-const card: CSSProperties = {
-  border: '1px solid var(--dsw-alias-border-l2, #d0d5dd)',
-  borderRadius: 8,
-  padding: 14,
-  marginTop: 12,
+/** The workspace list as the `useWorkspaces` standard hook publishes it. */
+interface WorkspacesSnapshot {
+  items: readonly WorkspaceForPicker[]
+  phase: string
 }
 
-const title: CSSProperties = {
-  fontWeight: 600,
-  fontSize: 14,
-  color: 'var(--dsw-alias-label-primary, #101828)',
-}
-
-const hint: CSSProperties = {
-  fontSize: 12,
-  lineHeight: 1.5,
-  color: 'var(--dsw-alias-label-secondary, #475467)',
-  marginTop: 4,
-}
-
-const pathText: CSSProperties = {
-  fontSize: 12,
-  lineHeight: 1.5,
-  color: 'var(--dsw-alias-label-secondary, #475467)',
-  fontFamily: 'var(--dsw-alias-font-mono, monospace)',
-  wordBreak: 'break-all',
-}
-
-const textareaBase: CSSProperties = {
-  width: '100%',
-  boxSizing: 'border-box',
-  marginTop: 10,
-  padding: '8px 10px',
-  border: '1px solid var(--dsw-alias-border-l2, #d0d5dd)',
-  borderRadius: 8,
-  background: 'var(--dsw-alias-bg-layer-1, #ffffff)',
-  color: 'var(--dsw-alias-label-primary, #101828)',
-  fontSize: 13,
-  lineHeight: 1.6,
-  resize: 'vertical',
-  minHeight: 80,
-  outline: 'none',
-}
-
-const newBadge: CSSProperties = {
-  flexShrink: 0,
-  fontSize: 11,
-  lineHeight: 1,
-  padding: '4px 8px',
-  borderRadius: 999,
-  color: 'var(--dsw-alias-brand-primary, #4176e6)',
-  border: '1px solid var(--dsw-alias-brand-primary, #4176e6)',
-}
-
-/** Last path segment of an absolute directory (title fallback for rows whose workspace left the registry). */
+/** Last path segment of an absolute directory (title fallback for orphaned prompts). */
 function basenameOf(cwd: string): string {
   return cwd.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? cwd
 }
 
-interface PromptCardProps {
-  /** Absolute workspace directory (the persisted prompt key). */
-  cwd: string
-  /** Workspace display title. */
-  name: string
-  /** Persisted prompt text ('' for a fresh pending row). */
-  text: string
-  /** Whether this workspace's prompt is armed for injection. */
-  enabled: boolean
-  /** Fresh row picked from the Add menu (not persisted yet). */
-  isNew: boolean
-  /** Why this row's switch refuses interaction (global busy state included). */
-  reason: PromptToggleReason
-  t: TranslateNS<'workspace-prompt'>
-  onSave: (cwd: string, text: string) => Promise<void>
-  onClear: (cwd: string) => Promise<void>
-  onToggle: (cwd: string, enabled: boolean) => Promise<void>
-  onCancel: (cwd: string) => void
+/** One-line preview of a possibly multi-line prompt. */
+function previewOf(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
 }
 
-/** One workspace card: title + path, editable prompt, footer actions. */
-function PromptCard({
-  cwd, name, text, enabled, isNew, reason, t, onSave, onClear, onToggle, onCancel,
-}: PromptCardProps): JSX.Element {
-  const disabled = reason !== 'none'
-  const [draft, setDraft] = useState(text)
-  const [busy, setBusy] = useState(false)
-  const [focused, setFocused] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [armPhase, setArmPhase] = useState<PromptTogglePhase>('idle')
+/** User-perceived character count (surrogate pairs count once). */
+function charCount(text: string): number {
+  return Array.from(text).length
+}
 
-  // Follow the persisted value after a reload (post-save), while local edits win otherwise.
-  useEffect(() => { setDraft(text) }, [text])
+/** A failure's message, whether it arrived as an Error or as anything else. */
+function messageOf(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
+}
 
-  // A refused arm write reports itself on the chip for a moment, then clears.
-  useEffect(() => {
-    if (armPhase !== 'failed') return
-    const timer = setTimeout(() => { setArmPhase('idle') }, 2200)
-    return () => { clearTimeout(timer) }
-  }, [armPhase])
-
-  const changed = draft !== text
-  const saveEnabled = !disabled && !busy && draft.trim().length > 0 && (isNew || changed)
-
-  const save = async (): Promise<void> => {
-    setBusy(true)
-    setError(null)
-    try {
-      await onSave(cwd, draft)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const clear = async (): Promise<void> => {
-    setBusy(true)
-    setError(null)
-    try {
-      await onClear(cwd)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const arm = (next: boolean): void => {
-    setArmPhase('busy')
-    void onToggle(cwd, next)
-      .then(() => { setArmPhase('idle') })
-      .catch(() => { setArmPhase('failed') })
-  }
-
+/** Two-line menu row: workspace title over its canonical path. */
+function workspaceItemLabel(name: string, path: string): ReactNode {
   return (
-    <div style={{ ...card, borderColor: isNew ? 'var(--dsw-alias-brand-primary, #4176e6)' : undefined }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={title}>{name}</div>
-          <div style={{ ...pathText, marginTop: 2 }}>{cwd}</div>
-        </div>
-        {/* A fresh row has nothing persisted to arm yet, so it carries no chip. */}
-        {!isNew && (
-          <PromptToggleChip
-            enabled={enabled}
-            reason={reason}
-            phase={armPhase}
-            labels={{
-              labelOn: t('chip.label.on'),
-              labelOff: t('chip.label.off'),
-              onHint: t('chip.on.hint'),
-              offHint: t('chip.off.hint'),
-              readonlyHint: t('chip.readonly.hint'),
-              failedHint: t('chip.failed.hint'),
-              skewHint: t('chip.skew.hint'),
-            }}
-            onToggle={arm}
-          />
-        )}
-        {isNew && <span style={newBadge}>{t('settings.new')}</span>}
-      </div>
-      <textarea
-        value={draft}
-        autoFocus={isNew}
-        disabled={busy || disabled}
-        placeholder={t('modal.placeholder')}
-        onChange={(event) => { setDraft(event.target.value) }}
-        onFocus={() => { setFocused(true) }}
-        onBlur={() => { setFocused(false) }}
-        rows={4}
-        style={{
-          ...textareaBase,
-          borderColor: focused ? 'var(--dsw-alias-brand-primary, #4176e6)' : undefined,
-          boxShadow: focused ? '0 0 0 2px rgba(65, 118, 230, 0.18)' : undefined,
-          opacity: busy || disabled ? 0.6 : 1,
-        }}
-      />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10 }}>
-        <span style={{ ...hint, marginTop: 0, flex: 1, minWidth: 0 }}>{t('settings.rowHint')}</span>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          {isNew
-            ? (
-              <Button variant="ghost" size="sm" disabled={busy || disabled} onClick={() => { onCancel(cwd) }}>
-                {t('settings.cancel')}
-              </Button>
-            )
-            : (
-              <Button variant="outline" size="sm" disabled={busy || disabled} onClick={clear}>
-                {t('settings.clear')}
-              </Button>
+    <span className={css.pickerItem}>
+      <span className={css.pickerTitle}>{name}</span>
+      <span className={css.pickerPath}>{path}</span>
+    </span>
+  )
+}
+
+/** Props of one configured (or pending) workspace row. */
+interface PromptRowProps {
+  row: WorkspacePromptRow
+  name: string
+  open: boolean
+  draft: string
+  busy: boolean
+  disabled: boolean
+  switchBusy: boolean
+  switchReason: 'none' | 'readonly' | 'skew'
+  switchTitle: string | undefined
+  switchError: boolean
+  flash: boolean
+  error: string | null
+  t: TranslateNS<'workspace-prompt'>
+  onOpen: () => void
+  onDraft: (text: string) => void
+  onSave: () => void
+  onClear: () => void
+  onCancel: () => void
+  onSwitch: (next: boolean) => void
+}
+
+/**
+ * One workspace row plus the editor that opens under it.
+ * @param props - row data, draft state, write state, and row actions.
+ * @returns the row and its inline editor when open.
+ */
+function PromptRow({
+  row, name, open, draft, busy, disabled, switchBusy, switchReason, switchTitle, switchError, flash, error,
+  t, onOpen, onDraft, onSave, onClear, onCancel, onSwitch,
+}: PromptRowProps): JSX.Element {
+  const preview = row.isNew ? t('settings.pendingPreview') : previewOf(row.text)
+  const stateLabel = row.enabled ? t('settings.on') : t('settings.off')
+  const canSave = !busy && !disabled && draft.trim() !== ''
+    && (row.isNew || draft !== row.text)
+  return (
+    <div className={css.item} data-flash={flash ? 'true' : undefined}>
+      <div
+        className={css.row}
+        data-open={open ? 'true' : undefined}
+        data-pending={row.isNew ? 'true' : undefined}
+        data-enabled={row.isNew ? undefined : row.enabled}
+      >
+        <button
+          type="button"
+          className={css.rowMain}
+          aria-expanded={open}
+          title={row.cwd}
+          onClick={onOpen}
+        >
+          <span className={css.folder}><IconFolderCloseRegular /></span>
+          <span className={css.rowText}>
+            <span className={css.rowTitle}>{name}</span>
+            <span className={css.rowPreview}>{preview}</span>
+            {switchError && (
+              <span className={css.rowError} role="alert">{t('settings.toggleError')}</span>
             )}
-          <Button variant="primary" size="sm" disabled={!saveEnabled} onClick={save}>
-            {t('settings.save')}
-          </Button>
-        </div>
+          </span>
+        </button>
+        {row.isNew
+          ? <span className={css.tagNew}>{t('settings.new')}</span>
+          : (
+            <>
+              <span className={css.rowState}>{stateLabel}</span>
+              <Switch
+                checked={row.enabled}
+                disabled={busy || switchBusy || switchReason !== 'none'}
+                label={t('settings.toggleAria').replace('{name}', name)}
+                title={switchTitle}
+                onChange={onSwitch}
+              />
+            </>
+          )}
+        <span className={css.chevron} aria-hidden="true"><IconChevronRightOutlineRegular /></span>
       </div>
-      {error !== null && (
-        <div role="alert" style={{ color: 'var(--dsw-alias-state-error-primary, #c0392b)', marginTop: 8, fontSize: 12 }}>
-          {t('settings.error').replace('{message}', error)}
+      {open && (
+        <div className={css.editor}>
+          <div className={css.editorHead}>
+            <span className={css.editorLabel}>{t('settings.editorLabel')}</span>
+            <span className={css.editorCount}>
+              {t('settings.charCount').replace('{count}', String(charCount(draft)))}
+            </span>
+          </div>
+          <textarea
+            className={css.textarea}
+            value={draft}
+            rows={4}
+            autoFocus
+            disabled={busy || disabled}
+            placeholder={t('settings.placeholder')}
+            onChange={(event) => { onDraft(event.target.value) }}
+          />
+          <div className={css.editorFoot}>
+            <p className={css.hint}>{t('settings.editorHint')}</p>
+            <div className={css.editorActions}>
+              {row.isNew
+                ? (
+                  <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>
+                    {t('settings.cancel')}
+                  </Button>
+                )
+                : (
+                  <Button
+                    variant="outline" size="sm" className={css.danger}
+                    disabled={busy || disabled} onClick={onClear}
+                  >
+                    {t('settings.clear')}
+                  </Button>
+                )}
+              <Button variant="primary" size="sm" disabled={!canSave} onClick={onSave}>
+                {t('settings.save')}
+              </Button>
+            </div>
+          </div>
+          {error !== null && (
+            <p className={css.error} role="alert">
+              {t('settings.error').replace('{message}', error)}
+            </p>
+          )}
         </div>
       )}
     </div>
   )
 }
 
-/** Two-line menu row: workspace title over its canonical path. */
-function workspaceItemLabel(name: string, path: string): ReactNode {
+/** Props of one read-only unconfigured workspace row. */
+interface EmptyRowProps {
+  name: string
+  cwd: string
+  flash: boolean
+  t: TranslateNS<'workspace-prompt'>
+}
+
+/**
+ * A registered workspace without a prompt. Its only verb is the card's Add
+ * menu, so the row renders no control of its own.
+ * @param props - workspace name/path, flash state, and copy.
+ * @returns the read-only row.
+ */
+function EmptyRow({ name, cwd, flash, t }: EmptyRowProps): JSX.Element {
   return (
-    <div style={{ minWidth: 0, maxWidth: 300 }}>
-      <div style={{
-        fontWeight: 500,
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-      }}>
-        {name}
-      </div>
-      <div style={{
-        fontSize: 11,
-        lineHeight: 1.4,
-        color: 'var(--dsw-alias-label-secondary, #475467)',
-        fontFamily: 'var(--dsw-alias-font-mono, monospace)',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-      }}>
-        {path}
+    <div className={css.item} data-flash={flash ? 'true' : undefined}>
+      <div className={css.row} data-unconfigured="true">
+        <div className={`${css.rowMain} ${css.rowMainStatic}`} title={cwd}>
+          <span className={css.folder}><IconFolderCloseRegular /></span>
+          <span className={css.rowText}>
+            <span className={css.rowTitle}>{name}</span>
+            <span className={`${css.rowPreview} ${css.rowPreviewMono}`}>{cwd}</span>
+          </span>
+        </div>
+        <span className={`${css.rowState} ${css.rowStateMuted}`}>{t('settings.unconfigured')}</span>
       </div>
     </div>
   )
@@ -287,25 +253,79 @@ export function WorkspacePromptsSection({
   usePrompts, useWorkspaces, refresh, save, clear, toggle, t,
 }: WorkspacePromptsSectionProps): JSX.Element {
   const state: WorkspacePromptsState = usePrompts((value: WorkspacePromptsState) => value)
-  const workspaces: { items: readonly WorkspaceForPicker[]; phase: string } = useWorkspaces(
-    (value: { items: readonly WorkspaceForPicker[]; phase: string }) => value,
-  )
+  const workspaces: WorkspacesSnapshot = useWorkspaces((value: WorkspacesSnapshot) => value)
   const [pending, setPending] = useState<readonly { cwd: string }[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [openCwd, setOpenCwd] = useState<string | undefined>(undefined)
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [toggleBusy, setToggleBusy] = useState<string | null>(null)
+  const [toggleError, setToggleError] = useState<string | null>(null)
+  const [flashCwd, setFlashCwd] = useState<string | null>(null)
 
   // The section mounts on each visit to the settings page: start from a fresh read.
   useEffect(() => { void refresh() }, [refresh])
 
-  // State hygiene for the picker's exclusion list: once a reload accounts a
-  // pending row's prompt, drop it from the local list. Rendering dedupes
-  // independently in `mergePromptRows`, so this effect never affects the
-  // card list — only which directories stay out of the Add menu.
+  // Once a reload accounts a pending row's prompt, drop it from the local list.
   useEffect(() => {
     setPending(previous => previous.filter(row => !state.entries.some(entry => entry.cwd === row.cwd)))
   }, [state.entries])
 
+  // An externally removed prompt closes its editor instead of leaving a stale one.
+  useEffect(() => {
+    if (openCwd === undefined) return
+    const persisted = state.entries.some(entry => entry.cwd === openCwd)
+    const isPending = pending.some(row => row.cwd === openCwd)
+    if (persisted || isPending) return
+    setOpenCwd(undefined)
+    setDraft('')
+    setError(null)
+  }, [openCwd, pending, state.entries])
+
+  // The save/clear highlight fades on its own.
+  useEffect(() => {
+    if (flashCwd === null) return
+    const timer = setTimeout(() => { setFlashCwd(null) }, 1200)
+    return () => { clearTimeout(timer) }
+  }, [flashCwd])
+
+  // A refused switch reports itself for a moment, then clears.
+  useEffect(() => {
+    if (toggleError === null) return
+    const timer = setTimeout(() => { setToggleError(null) }, 2600)
+    return () => { clearTimeout(timer) }
+  }, [toggleError])
+
+  const titleByPath = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const workspace of workspaces.items) map.set(workspace.path, workspace.title)
+    return map
+  }, [workspaces.items])
+
+  const nameFor = useCallback(
+    (cwd: string): string => titleByPath.get(cwd) ?? basenameOf(cwd),
+    [titleByPath],
+  )
+
+  const rows = useMemo(
+    () => mergePromptRows(state.entries, pending),
+    [pending, state.entries],
+  )
+
+  // Configured workspaces first, each group by title; a freshly added row stays
+  // at the top until it is saved, mirroring the original page's pending card.
+  const orderedRows = useMemo(() => {
+    const byName = (a: WorkspacePromptRow, b: WorkspacePromptRow): number =>
+      nameFor(a.cwd).localeCompare(nameFor(b.cwd)) || a.cwd.localeCompare(b.cwd)
+    return [
+      ...rows.filter(row => row.isNew).sort(byName),
+      ...rows.filter(row => !row.isNew).sort(byName),
+    ]
+  }, [nameFor, rows])
+
   const configuredPaths = useMemo<ReadonlySet<string>>(
-    () => new Set(state.entries.map((entry: WorkspacePromptsState['entries'][number]) => entry.cwd)),
+    () => new Set(state.entries.map(entry => entry.cwd)),
     [state.entries],
   )
   const excludedPaths = useMemo(
@@ -316,38 +336,83 @@ export function WorkspacePromptsSection({
     () => unconfiguredWorkspaces(workspaces.items, excludedPaths),
     [workspaces.items, excludedPaths],
   )
-  const titleByPath = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const workspace of workspaces.items) map.set(workspace.path, workspace.title)
-    return map
-  }, [workspaces.items])
-
-  const nameFor = (cwd: string): string => titleByPath.get(cwd) ?? basenameOf(cwd)
-
-  // One card per directory: pending rows yield to their persisted entry as
-  // soon as a reload accounts the saved prompt (same render, same React key —
-  // no duplicate card, no reliance on the cleanup effect's timing).
-  const rows = useMemo(
-    () => mergePromptRows(state.entries, pending),
-    [pending, state.entries],
-  )
 
   const workspacesReady = workspaces.phase === 'ready'
-  // The shared form has no Host answer yet: no row is trustworthy, and every
-  // write surface stays disabled until it is ready and writable.
-  const busy = state.status === 'loading'
-  const disabled = busy || !state.writable
+  const loading = state.status === 'loading'
+  const disabled = loading || !state.writable
   // An upgraded browser half talking to a Host that has not been restarted
   // finds no arm field in the resolved section; saying so beats a refusal.
-  const switchReason: PromptToggleReason = !state.switchSupported ? 'skew' : disabled ? 'readonly' : 'none'
+  const switchReason: 'none' | 'readonly' | 'skew' = !state.switchSupported
+    ? 'skew'
+    : disabled ? 'readonly' : 'none'
+  const switchTitle = switchReason === 'skew'
+    ? t('chip.skew.hint')
+    : switchReason === 'readonly' ? t('chip.readonly.hint') : undefined
+
+  const openEditor = useCallback((cwd: string, text: string): void => {
+    setOpenCwd(cwd)
+    setDraft(text)
+    setError(null)
+  }, [])
+
+  const closeEditor = useCallback((): void => {
+    setOpenCwd(undefined)
+    setDraft('')
+    setError(null)
+  }, [])
 
   const addWorkspace = (cwd: string): void => {
     setPickerOpen(false)
     setPending(previous => previous.some(row => row.cwd === cwd) ? previous : [...previous, { cwd }])
+    openEditor(cwd, '')
   }
 
   const cancelWorkspace = (cwd: string): void => {
     setPending(previous => previous.filter(row => row.cwd !== cwd))
+    closeEditor()
+  }
+
+  const saveRow = async (row: WorkspacePromptRow): Promise<void> => {
+    setBusy(true)
+    setError(null)
+    try {
+      await save(row.cwd, draft)
+      setPending(previous => previous.filter(item => item.cwd !== row.cwd))
+      closeEditor()
+      setFlashCwd(row.cwd)
+    } catch (cause) {
+      setError(messageOf(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const clearRow = async (row: WorkspacePromptRow): Promise<void> => {
+    setBusy(true)
+    setError(null)
+    try {
+      await clear(row.cwd)
+      closeEditor()
+      setFlashCwd(row.cwd)
+    } catch (cause) {
+      setError(messageOf(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const arm = (cwd: string, next: boolean): void => {
+    if (switchReason !== 'none' || toggleBusy !== null) return
+    setToggleBusy(cwd)
+    setToggleError(null)
+    void toggle(cwd, next)
+      .catch(() => { setToggleError(cwd) })
+      .finally(() => { setToggleBusy(null) })
+  }
+
+  const toggleRow = (row: WorkspacePromptRow): void => {
+    if (openCwd === row.cwd) closeEditor()
+    else openEditor(row.cwd, row.text)
   }
 
   const menuItems: MenuEntry[] = addable.length === 0
@@ -364,68 +429,100 @@ export function WorkspacePromptsSection({
         })),
       ]
 
+  const meta = !workspacesReady
+    ? t('settings.add.loading')
+    : workspaces.items.length === 0
+      ? t('settings.count').replace('{count}', String(state.entries.length))
+      : t('settings.countOf')
+        .replace('{configured}', String(state.entries.length))
+        .replace('{total}', String(workspaces.items.length))
+
   return (
-    <div>
-      <h2>{t('settings.title')}</h2>
-      <p>{t('settings.intro')}</p>
-      {!state.switchSupported && <p role="status" style={{ ...hint, color: 'var(--dsw-alias-state-error-primary, #c0392b)' }}>{t('settings.skew')}</p>}
+    <section className={css.section}>
+      <h2 className={css.title}>{t('settings.title')}</h2>
+      <p className={css.intro}>{t('settings.intro')}</p>
 
-      {/* Toolbar: configured-count summary on the left, Add picker on the right. */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12 }}>
-        <span style={{ ...hint, marginTop: 0 }}>
-          {!workspacesReady
-            ? t('settings.add.loading')
-            : workspaces.items.length === 0
-              ? t('settings.count').replace('{count}', String(state.entries.length))
-              : t('settings.countOf')
-                .replace('{configured}', String(state.entries.length))
-                .replace('{total}', String(workspaces.items.length))}
-        </span>
-        <Menu
-          open={pickerOpen}
-          onClose={() => { setPickerOpen(false) }}
-          onSelect={(id) => { addWorkspace(id) }}
-          items={menuItems}
-          portal
-          anchor={(
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<IconPlusOutlineRegular size={14} />}
-              disabled={disabled || !workspacesReady}
-              onClick={() => { setPickerOpen(open => !open) }}
-            >
-              {t('settings.add')}
-            </Button>
-          )}
-        />
-      </div>
-
-      {/* Configured + freshly added workspace cards. */}
-      {rows.map(row => (
-        <PromptCard
-          key={row.cwd}
-          cwd={row.cwd}
-          name={nameFor(row.cwd)}
-          text={row.text}
-          enabled={row.enabled}
-          isNew={row.isNew}
-          reason={switchReason}
-          t={t}
-          onSave={save}
-          onClear={clear}
-          onToggle={toggle}
-          onCancel={cancelWorkspace}
-        />
-      ))}
-
-      {/* Empty state: nothing configured yet (Add lives in the toolbar above). */}
-      {rows.length === 0 && !busy && (
-        <div style={{ ...card, textAlign: 'center', padding: '22px 14px' }}>
-          <div style={title}>{t('settings.empty.title')}</div>
-          <div style={hint}>{t('settings.empty.hint')}</div>
-        </div>
+      {!state.switchSupported && (
+        <p className={css.banner} role="status">{t('settings.skew')}</p>
       )}
-    </div>
+      {state.switchSupported && !state.writable && !loading && (
+        <p className={css.banner} role="status">{t('settings.readonly')}</p>
+      )}
+
+      <div className={css.card}>
+        <div className={css.cardHead}>
+          <h3 className={css.cardTitle}>{t('settings.card')}</h3>
+          <div className={css.headActions}>
+            <span className={css.cardMeta}>{meta}</span>
+            <Menu
+              open={pickerOpen}
+              onClose={() => { setPickerOpen(false) }}
+              onSelect={(id) => { addWorkspace(id) }}
+              items={menuItems}
+              portal
+              anchor={(
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<IconPlusOutlineRegular size={14} />}
+                  disabled={disabled || !workspacesReady || addable.length === 0}
+                  onClick={() => { setPickerOpen(open => !open) }}
+                >
+                  {t('settings.add')}
+                </Button>
+              )}
+            />
+          </div>
+        </div>
+
+        <div className={css.list}>
+          {orderedRows.length === 0 && (
+            <p className={css.listHint}>{t('settings.emptyInline')}</p>
+          )}
+
+          {orderedRows.map(row => (
+            <PromptRow
+              key={row.cwd}
+              row={row}
+              name={nameFor(row.cwd)}
+              open={openCwd === row.cwd}
+              draft={openCwd === row.cwd ? draft : ''}
+              busy={busy}
+              disabled={disabled}
+              switchBusy={toggleBusy !== null}
+              switchReason={switchReason}
+              switchTitle={switchTitle}
+              switchError={toggleError === row.cwd}
+              flash={flashCwd === row.cwd}
+              error={openCwd === row.cwd ? error : null}
+              t={t}
+              onOpen={() => { toggleRow(row) }}
+              onDraft={(text) => { setDraft(text); setError(null) }}
+              onSave={() => { void saveRow(row) }}
+              onClear={() => { void clearRow(row) }}
+              onCancel={() => { cancelWorkspace(row.cwd) }}
+              onSwitch={(next) => { arm(row.cwd, next) }}
+            />
+          ))}
+
+          {orderedRows.length > 0 && addable.length > 0 && (
+            <div className={css.divider} role="separator">
+              <span className={css.dividerLabel}>{t('settings.divider')}</span>
+              <span className={css.dividerCount}>{addable.length}</span>
+            </div>
+          )}
+
+          {addable.map(workspace => (
+            <EmptyRow
+              key={workspace.path}
+              name={workspace.title}
+              cwd={workspace.path}
+              flash={flashCwd === workspace.path}
+              t={t}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
   )
 }
